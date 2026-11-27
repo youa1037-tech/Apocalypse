@@ -314,22 +314,22 @@ export function sceneLine(a) {
 }
 // ★ 끝까지 숨긴 것 — 결산에서 비밀 시트처럼 편다. a: { item, zone, res, prog }
 export const SECRET_TEXT = {
-  tapeUnseen: '배수관 뒤 테이프는 끝내 확인하지 않았다.',
+  tapeUnseen: '배수관 뒤 테이프는 확인하지 않았다.',
   keyKept: '배수관 뒤에서 옥상 열쇠를 찾았다. 아무도 몰랐다.',
   keyKnown: '배수관 뒤에서 옥상 열쇠를 찾았다. 결국 상대도 알게 됐다.',
-  radioUnheard: '무전기는 끝내 켜지 않았다. 22시 15분 방송의 끝 문장은 듣지 못했다.',
-  bcastKept: (a) => `22시 15분 방송의 덧입혀진 끝 문장을 혼자 들었다.${a.seen ? ' 무전기를 든 모습은 들켰다.' : ''} 내용은 끝내 말하지 않았다.`,
+  radioUnheard: '무전기는 켜지 않았다. 22시 15분 방송의 끝 문장은 듣지 못했다.',
+  bcastKept: (a) => `22시 15분 방송의 덧입혀진 끝 문장을 혼자 들었다.${a.seen ? ' 무전기를 든 모습은 들켰다.' : ''}`,
   bcastBoth: '둘 다 그 방송을 들었다. 그 이야기는 한 번도 하지 않았다.',
   bcastTold: '22시 15분 방송의 끝 문장을 털어놓았다.',
-  underKept: (a) => `01시 10분 지하 구간 방송을 혼자 들었다.${a.used ? ' 그 길을 혼자 썼다.' : ''} 끝내 말하지 않았다.`,
+  underKept: (a) => `01시 10분 지하 구간 방송을 혼자 들었다.${a.used ? ' 그 길을 혼자 썼다.' : ''}`,
   underBypass: (a) => `물린 채로 보일러실 계단을 올라왔다. 검문은 거치지 않았다.${a.kept ? '' : ' 결국 들켰다.'}`,
-  noteKept: (a) => `끝내 건네지 못한 쪽지: 「${a.text}」`,
+  noteKept: (a) => `건네지 못한 쪽지: 「${a.text}」`,
   replay: (a) => `${NAMES[a.whom]}의 무전 녹음을 ${a.n}번 다시 들었다.${a.seen ? ' 수신기를 귀에 대는 모습은 들켰다.' : ''}`,
   biteKept: (a) => `물린 자국을 소매 밑에 숨겼다.${a.prog === 'prog' ? ' 진행성이라는 것도 알고 있었다.' : a.prog === 'non' ? ' 비진행성이라는 건 혼자 알았다.' : ''}`,
   biteKnown: '물린 자국은 결국 들켰다.',
   resultKept: (a) => `진단 결과지(${a.res === 'clear' ? '이상 없음' : a.res === 'prog' ? '진행성' : '비진행성'})를 혼자 봤다.`,
   resultTold: (a) => `진단 결과지(${a.res === 'clear' ? '이상 없음' : a.res === 'prog' ? '진행성' : '비진행성'})를 보여 주었다.`,
-  hideKept: (a) => `${a.zone ? j(ZONE_TEXT[a.zone].short, '에') + ' ' : ''}${j(ITEM_TEXT[a.item] ? ITEM_TEXT[a.item].name : a.item, '을')} 숨겨 두었다. 끝내 찾지 못했다.`,
+  hideKept: (a) => `${a.zone ? j(ZONE_TEXT[a.zone].short, '에') + ' ' : ''}${j(ITEM_TEXT[a.item] ? ITEM_TEXT[a.item].name : a.item, '을')} 숨겨 두었다. 아무도 찾지 못했다.`,
   hideFound: (a) => `숨겨 둔 ${j(ITEM_TEXT[a.item] ? ITEM_TEXT[a.item].name : a.item, '은')} 들켰다.`,
 };
 export const secretLine = (x) => { const t = SECRET_TEXT[x.k]; return typeof t === 'function' ? t(x) : t || ''; };
@@ -341,7 +341,7 @@ export const ENDING_TEXT = {
   ren: {
     together: '버스 창문에 김이 서렸다. 옆자리의 아케치는 눈을 감고 자는 척을 했다. 어깨가 부딪혀도 피하지 않았다. 도쿄 경계 표지판을 지나치는 걸, 우리는 둘 다 보지 못했다.',
     iWent: '뒷유리 너머로 대피소 지붕이 작아졌다. 창에 손바닥을 댔다. 저쪽에서 손을 들어 주지는 않았다. 아케치다운 배웅이었다.',
-    iStayed: '버스가 떠났다. 창가에 앉은 얼굴이 이쪽을 보지 않으려 애쓰는 게 보였다. 그거면 됐다. 셔터를 반만 내린 가게 하나쯤, 누가 지켜야 하니까.',
+    iStayed: '버스가 떠났다. 창가에 앉은 얼굴이 이쪽을 보지 않으려 애쓰는 게 보였다. 셔터를 반만 내린 가게 하나쯤, 누가 지켜야 하니까.',
     bothStayed: '엔진 소리가 멀어졌다. 둘 다 숙직실 바닥에 앉아 그 소리가 다 사라질 때까지 기다렸다. 아케치가 먼저 웃었다. 이유는 묻지 않았다.',
     stayedApart: (c) => `${zn(c, 'ren')}에서 엔진 소리가 멀어지는 걸 들었다. 소리가 다 끊긴 뒤에도 아케치는 오지 않았다. 아마 그도 어딘가에서 같은 소리를 듣고 있었을 것이다.`,
     iRefused: '검사원이 고개를 저었다. 아무 말 없이 줄에서 빠졌다. 소매 밑의 자국이 그제야 아프기 시작했다.',
@@ -361,7 +361,7 @@ export const ENDING_TEXT = {
     iRefused: '재검사에서 걸렸다. 놀라지 않았다. 줄에서 빠지면서, 렌 쪽은 보지 않았다.',
     iStayedAway: (c) => `${zn(c, 'akechi')}에서 차가 떠나는 소리를 들었다. 창가에 앉은 얼굴은 못 봤다. 보지 않아서 다행이라고 생각하기로 했다.`,
     theyTurned: '“…렌.” 대답은 신음이었다. 끝까지 솔직해지지 못한 건 결국 이쪽이었다.',
-    iTurned: '이름을 부르려고 했다. 입에서 나온 건 다른 소리였다. 그 애가 울지 않기를, 그것만은 아직 바랄 수 있었다.',
+    iTurned: '이름을 부르려고 했다. 입에서 나온 건 다른 소리였다.',
     theyDied: '경쟁자가 사라진 세상은 생각보다 시시했다. 그걸 확인하려고 살아남은 건 아니었는데.',
     iDied: '하필이면 너구나, 라고 했었다. 마지막도 하필이면 너였다. 나쁘지 않았다.',
     bothGone: '누구의 이름도 명단에 남지 않았다. 처음부터 그 편이 나았을지도 모른다.',
@@ -407,12 +407,12 @@ export function storyLines(f) {
     out.push(`${f.signBlocked.day}일 밤, ${j(N(f.signBlocked.by), '이')} ${N(f.signBlocked.on)}의 서명을 막았다.`);
     if (f.signOutcome === 'yield') out.push(`${j(N(f.signBlocked.on), '은')} 펜을 내려놓았다.`);
     if (f.signOutcome === 'pulled') out.push(`${j(N(f.signBlocked.on), '은')} 뿌리치고 이름을 썼다.`);
-    if (f.signOutcome === 'stopped') out.push('펜은 끝내 멈췄다.');
+    if (f.signOutcome === 'stopped') out.push('펜은 멈췄다.');
     if (f.broadcastShared) out.push('이튿날, 막은 이유(덧입힌 방송)를 들려주었다.');
     else if (f.ownReason) out.push(`이튿날, ${j(N(f.signBlocked.by), '은')} 방송 대신 자기 말로 이유를 댔다.`);
     else if (f.askedNoAnswer) out.push('이튿날 렌이 물었지만, 대답은 매듭이었다.');
     else if (f.renSilent) out.push('이튿날 아케치가 되물었지만, 렌은 앞치마 끈만 만지작거렸다.');
-    else out.push('막은 이유는 끝내 말하지 않았다.');
+    else out.push('막은 이유는 말하지 않았다.');
   }
   if (f.apronTied) out.push('앞치마는 다시 렌의 허리에 묶였다.');
   else if (f.apronHanded) out.push('앞치마는 갠 채로 렌의 손에 돌아갔다.');
@@ -895,15 +895,14 @@ export const LOG_ROLE = {
     'lean.same': '아케치가 말없이 어깨를 내준다. 이쪽은 보지 않는다.',
     'care.same': '아케치가 붕대를 감아 준다. 손끝이 생각보다 조심스럽다.',
     'offerNo.same': '아케치가 고개를 젓는다. “동정이라면 사양이야.”',
-    'replay.same': '아케치가 수신기를 귀에 댄다. 뭘 듣는지 묻기엔 표정이 너무 조용하다.',
   },
   akechi: {
     'listen.self': '수신기에 귀를 댄다. (음질이 다른 끝 문장을 놓치지 않으려 숨을 죽인다.)',
     'listen.same': '렌이 수신기에 귀를 댄다. 들키지 않으려는 기색도 없다.',
     'pipe.same': (a) => (a.found ? '렌이 배수관 뒤에서 뭔가를 떼어 낸다. 처음부터 거기 있는 걸 알았다는 손놀림이다.' : '렌이 배수관 뒤를 더듬다 손을 뺀다. 아쉬운 기색을 숨기지 못한다.'),
-    'block.self': (a) => (a.kind === 'sign' ? '종이를 손바닥으로 눌렀다. (설명은 나중이다. 나중이 있다면.)' : null),
+    'block.self': (a) => (a.kind === 'sign' ? '종이를 손바닥으로 눌렀다.' : null),
     'block.same': (a) => (a.kind === 'sign' ? '렌의 손바닥이 종이를 누른다. 늘 그렇듯 이유보다 손이 먼저다.' : null),
-    'sleeve.self': '소매를 내려 상처를 덮었다. (가면이라면 익숙하다.)',
+    'sleeve.self': '소매를 내려 상처를 덮었다.',
     'sleeve.same': '렌이 소매를 내린다. 아무렇지 않은 척이 서툴다.',
     'lean.same': '렌이 어깨를 내준다. 거절할 이유를 찾다가, 그만둔다.',
     'care.same': '렌이 붕대를 감아 준다. 아프냐고 한 번도 묻지 않는다.',
