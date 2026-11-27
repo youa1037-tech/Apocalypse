@@ -605,7 +605,7 @@ body.tut .goal,body.tut .hint{display:none}
    검정 바탕, 얇은 흰 선(투명도 단계), 선택·내 말·위기만 흰색으로 반전.
    본문은 시스템 고딕, 구역 이름·무대 배지·대사창만 픽셀체(Galmuri). */
 body.ingame{--b1:rgba(255,255,255,.2);--b2:rgba(255,255,255,.55);--mu:#8c8c8c;--i2:#d4d4d4;--sf:rgba(255,255,255,.04)}
-body.ingame #game,body.ingame #sheet,body.ingame #result,body.ingame #vote,body.ingame #toast{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+body.ingame #game,body.ingame #sheet,body.ingame #result,body.ingame #vote,body.ingame #toast{font-family:Galmuri,ui-monospace,monospace;-webkit-font-smoothing:none;font-size:14px;line-height:1.5}
 body.ingame #app{background:#080808;padding-left:0;padding-right:0}
 @media (min-width:520px){body.ingame #app{border:2px solid #fff;border-radius:24px;margin-top:12px;height:calc(var(--appH,100dvh) - 24px);overflow:hidden}}
 body.ingame #game{gap:0;padding:0 12px}
@@ -632,7 +632,7 @@ body.ingame #bandText{line-height:20px;font-weight:500}
 .hdr4 .lc{display:flex;flex-direction:column;align-items:center;min-width:0;flex:1}
 .hdr4 .ln4{font-family:Galmuri,ui-monospace,monospace;-webkit-font-smoothing:none;font-weight:700;font-size:15px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .hdr4 .lm{display:flex;align-items:center;gap:6px;margin-top:2px;font-size:11px;color:var(--mu);white-space:nowrap}
-.hdr4 .ldot{width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 6px #fff;flex:none}
+.hdr4 .ldot{width:6px;height:6px;background:#fff;flex:none;animation:blink 1.6s steps(2) infinite}
 body.ingame #me{flex:none;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--b1);background:var(--sf);color:var(--i2);box-shadow:none;font-size:12px;min-height:0;cursor:pointer}
 #me .mb{display:flex;gap:2px;align-items:flex-end;height:10px}
 #me .mb i{width:3px;border-radius:1px;background:var(--i2);display:block}
@@ -644,13 +644,13 @@ body.ingame #me.warn{background:#fff;border-color:#fff;color:#000}
 /* 2단: 무대 */
 body.ingame #locPanel{margin-top:10px;background:none;border:0;box-shadow:none;overflow:visible;flex:none}
 body.ingame #locPanel .scenewrap{margin:0;border:2px solid rgba(255,255,255,.75);border-radius:14px;overflow:hidden;background:#000;padding:0;box-shadow:none}
-body.ingame #locPanel .scenewrap::after{content:'';position:absolute;inset:0;border-radius:12px;box-shadow:inset 0 0 22px rgba(255,255,255,.1);pointer-events:none;z-index:1}
+body.ingame #locPanel .scenewrap::after{content:'';position:absolute;inset:0;border-radius:12px;box-shadow:inset 0 0 0 1px #000,inset 0 0 0 2px rgba(255,255,255,.25);pointer-events:none;z-index:1}
 body.danger #locPanel .scenewrap{animation:none}
 body.danger #locPanel .scenewrap::after{box-shadow:inset 0 0 0 3px #fff;animation:frost .65s steps(2) infinite}
 @keyframes frost{50%{opacity:.5}}
 #snow{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;object-fit:cover;pointer-events:none;z-index:1}
 #stageBadge{position:absolute;top:8px;left:10px;z-index:2;display:inline-flex;align-items:center;gap:5px;background:rgba(0,0,0,.82);border:1px solid rgba(255,255,255,.45);border-radius:999px;padding:1px 9px;font-family:Galmuri,ui-monospace,monospace;-webkit-font-smoothing:none;font-size:11px;color:#fff;pointer-events:none;max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#stageBadge .wd{width:5px;height:5px;border-radius:50%;background:#fff;flex:none}
+#stageBadge .wd{width:5px;height:5px;background:#fff;flex:none}
 #stageBadge.danger{background:#fff;border-color:#fff;color:#000;font-weight:700}
 body.ingame #mini{top:8px;left:auto;right:8px;z-index:2;background:rgba(0,0,0,.82);border:1px solid rgba(255,255,255,.45);transform:scale(.8);transform-origin:top right}
 body.ingame #mini .mc{border-color:#fff;background:#000}
@@ -664,12 +664,12 @@ body.ingame #prompt{margin-top:8px;background:#000;color:#fff;border:1px solid v
 body.ingame #prompt.danger{border:2px solid #fff;animation:none}
 #prompt .at{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;font-weight:700;margin-bottom:6px}
 #prompt .at .sec{font-variant-numeric:tabular-nums}
-#prompt .ab{height:4px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden;margin-bottom:8px}
-#prompt .ab i{display:block;height:100%;background:#fff;border-radius:999px;transition:width .2s linear}
+#prompt .ab{height:6px;border:1px solid #fff;border-radius:2px;background:#000;overflow:hidden;margin-bottom:8px}
+#prompt .ab i{display:block;height:100%;background:repeating-linear-gradient(90deg,#fff 0 3px,transparent 3px 4px);border-radius:0}
 #prompt .row{gap:6px;margin-top:6px}
 #prompt .row .btn{flex:1 1 0}
-body.ingame.sheet-open #prompt:not([hidden]){box-shadow:0 8px 24px rgba(0,0,0,.8)}
-body.ingame.sheet-open #prompt.danger:not([hidden]){box-shadow:0 8px 24px rgba(0,0,0,.8)}
+body.ingame.sheet-open #prompt:not([hidden]){box-shadow:0 4px 0 #000,0 5px 0 rgba(255,255,255,.3)}
+body.ingame.sheet-open #prompt.danger:not([hidden]){box-shadow:0 4px 0 #000,0 5px 0 #fff}
 /* 목표·목격 한 줄 */
 body.ingame #goalbar{margin-top:8px;padding:5px 10px;border:1px solid var(--b1);border-radius:10px;color:var(--i2);min-height:0;flex:none;background:none}
 body.ingame #goalbar .gbtn{color:inherit;min-height:24px}
@@ -774,7 +774,7 @@ body.ingame #coach .cstep{background:#fff;color:#000}
 body.typing .hdr4,body.typing #goalbar,body.typing .toolbar{display:none!important}
 body.typing .dock{border-top:0;padding-top:6px}
 /* 시트 */
-body.ingame #sheet{background:rgba(5,8,15,.65);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+body.ingame #sheet{background:repeating-conic-gradient(rgba(0,0,0,.85) 0 25%,rgba(0,0,0,.45) 0 50%) 0 0/4px 4px}
 body.ingame .sheet{background:#0d0d0d;border:0;border-top:1px solid var(--b2);border-radius:22px 22px 0 0;box-shadow:none;padding:14px 16px max(16px,env(safe-area-inset-bottom))}
 body.ingame .shead{border-bottom:1px solid var(--b1);font-size:15px;padding:0 2px 10px;margin-bottom:10px}
 body.ingame .shead b{font-family:Galmuri,ui-monospace,monospace;-webkit-font-smoothing:none}
@@ -829,14 +829,14 @@ body.ingame #vote h2.tbar{background:none;border-bottom:1px solid var(--b1);colo
 body.ingame #result{background:#080808;padding:0;align-items:stretch}
 body.ingame .rbox{background:none;border:0;box-shadow:none;border-radius:0;max-height:100dvh;padding:max(26px,env(safe-area-inset-top)) 22px max(22px,env(safe-area-inset-bottom));margin:0 auto}
 .stp{font-family:Galmuri,ui-monospace,monospace;-webkit-font-smoothing:none;font-size:11px;color:#fff;opacity:.75;margin-bottom:14px}
-body.ingame .rt{font-family:'Noto Serif KR','Nanum Myeongjo','AppleMyungjo',serif;font-size:21px;font-weight:700;margin:0 0 6px}
-body.ingame .endp{border:0;padding:0;margin:0 0 18px;font-family:'Noto Serif KR','Nanum Myeongjo','AppleMyungjo',serif;font-size:15.5px;line-height:1.9;word-break:keep-all}
+body.ingame .rt{font-size:21px;font-weight:700;margin:0 0 6px}
+body.ingame .endp{border:0;padding:0;margin:0 0 18px;font-size:15.5px;line-height:1.9;word-break:keep-all}
 body.ingame .endp.solo{padding:14px 0;font-size:16.5px;margin:18px 0 26px}
 body.ingame .endp .endo{border-left:2px solid #fff;padding:4px 0 4px 13px;margin-top:16px;opacity:1;color:var(--i2);font-size:14px}
-body.ingame .endp .endo b{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:11.5px;color:#fff}
+body.ingame .endp .endo b{font-size:12px;color:#fff}
 body.ingame .rc{background:var(--sf);border:1px solid var(--b1);border-radius:12px}
 body.ingame .ep{color:var(--i2)}
-body.ingame .story p{font-family:'Noto Serif KR','Nanum Myeongjo','AppleMyungjo',serif;color:var(--i2);line-height:1.8}
+body.ingame .story p{color:var(--i2);line-height:1.8}
 body.ingame .sec p{padding:9px 11px;border-radius:10px;background:var(--sf);border:1px solid var(--b1);font-size:12.5px;color:var(--i2);margin:0 0 8px}
 body.ingame .sec p.kept{color:#fff;border-color:var(--b2)}
 body.ingame .sec .sn{font-size:12px;color:var(--mu)}
