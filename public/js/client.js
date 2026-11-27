@@ -452,8 +452,14 @@ const ui = {
   renderMe(v) {
     const m = v.me;
     const bar = (ic, cls, val, label) => `<span class="mini" title="${label} ${val}">${icon(ic, 11)}<span class="bar b-${cls}"><i style="width:${Math.max(0, Math.min(100, val))}%"></i></span></span>`;
-    const tags = m.turned ? '<span class="st bad">감염 전환</span>' : (m.status.length ? this.tags(m.status, 3) : '<span class="st ok">이상 없음</span>');
-    this.set('me', `${this.avatar(m.role)}<span class="who"><b>${esc(NAMES[m.role])}</b><span class="sts">${tags}</span></span><span class="bars">${bar('heart', 'hp', m.hp, '체력')}${bar('bolt', 'st', m.stamina, '기력')}${bar('snow', 'cold', m.cold, '추위')}</span><span class="bag">가방 ${m.load}/${v.cfg.cap}</span>`);
+    void bar;
+    const BAD = ['bleed', 'bitten', 'fever', 'tremor', 'down'];
+    const worst = m.status.find((k) => BAD.includes(k)) || m.status[0];
+    const tag = m.turned ? '감염 전환' : worst ? STATUS_TEXT[worst] : m.cold >= 60 ? '추움' : m.cold >= 35 ? '서늘함' : '이상 없음';
+    const warn = m.turned || (worst && BAD.includes(worst)) || m.hp < 35 || m.cold >= 60;
+    const h = (x) => Math.max(2, Math.round(Math.max(0, Math.min(100, x)) / 10));
+    $('#me').classList.toggle('warn', !!warn);
+    this.set('me', `<span class="mb" aria-hidden="true"><i style="height:${h(m.hp)}px"></i><i style="height:${h(m.stamina)}px"></i><i class="c" style="height:${h(m.cold)}px"></i></span><span class="pl4">${esc(NAMES[m.role])} · <b>${esc(tag)}</b></span>`);
   },
   statusHtml(v) {
     const m = v.me, p = v.partner;
@@ -482,6 +488,19 @@ const ui = {
   // ── 위치 패널: 제목 띠 + 도트 장면 + 묘사 + 목표 ──
   renderLoc(v) {
     this.set('locTitle', esc(ZONE_TEXT[v.zone.id].name));
+    {
+      const z = v.zone.zombie, P2 = v.partner, pn = NAMES[P2.role];
+      let bt, bc = '';
+      if (z && z.st === 'warn') { bt = `경고 · ${secs(z.left)}초 안에 대응`; bc = 'danger'; }
+      else if (P2.turned) bt = `${pn}였던 것`;
+      else if (P2.rel === 'same' && P2.zone) bt = `곁에 · ${pn}`;
+      else if (P2.rel === 'glass' && P2.zone) bt = `창 너머 · ${pn}`;
+      else if (v.channel === 'radio') bt = `무전 · ${pn}`;
+      else bt = '혼자';
+      const el = $('#stageBadge'); if (el.className !== bc) el.className = bc;
+      this.set('stageBadge', `${bc ? '' : '<span class="wd"></span>'}${esc(bt)}`);
+      this.snowOn = !!(ZONES_OUT[v.zone.id]);
+    }
     this.set('locDesc', bold(ZONE_TEXT[v.zone.id].look));
     const g = goalsOf(v, this);
     this.hintNow = this.hints && !this.host.tutorial ? hintOf(v) : null;
@@ -490,9 +509,10 @@ const ui = {
     this.set('goalbar', w ? witnessHtml(w) : `<button class="gbtn" data-sheet="goals"><span class="gk">목표</span><span class="gt">${esc(g.main)}</span><span class="gm">▸</span></button>`);
   },
   // ── 채팅 | 기록 | 주변 ──
+  // 대화와 기록을 한 줄기로: 말은 말풍선, 일어난 일은 서술 줄
   splitLog(v) {
     const chat = [], log = [];
-    for (const e of v.log) (isChatEntry(e) ? chat : log).push(e);
+    for (const e of v.log) { chat.push(e); if (!isChatEntry(e)) log.push(e); }
     return { chat, log };
   },
   renderSeg(v, parts) {
@@ -501,18 +521,22 @@ const ui = {
     const key = v.role;
     this.seen = this.seen || {};
     const seen = this.seen[key] || (this.seen[key] = { chat: 0, log: 0 });
-    seen[tab === 'near' ? 'near' : tab] = last(tab === 'chat' ? parts.chat : tab === 'log' ? parts.log : []);
+    seen[tab === 'near' ? 'near' : tab] = last(tab === 'chat' ? parts.chat : []);
     const unread = (arr, k) => arr.filter((e) => e.id > (seen[k] || 0) && !(e.a && e.a.who === v.role && k === 'chat')).length;
     const nc = tab === 'chat' ? 0 : unread(parts.chat, 'chat');
     const nl = tab === 'log' ? 0 : unread(parts.log, 'log');
     const z = v.zone.zombie;
     const nearAlert = tab !== 'near' && ((z && z.st !== 'idle') || (v.partner.rel === 'same' && v.partner.task && v.partner.task.interruptible));
     const b = (n) => (n ? `<b>${n > 99 ? '99+' : n}</b>` : '');
-    this.set('seg', `<button role="tab" data-tab="chat" aria-selected="${tab === 'chat'}">채팅${b(nc)}</button><button role="tab" data-tab="log" aria-selected="${tab === 'log'}">기록${b(nl)}</button><button role="tab" data-tab="near" aria-selected="${tab === 'near'}">주변${nearAlert ? '<b>!</b>' : ''}</button>`);
+    void nl;
+    const nn = this.nearCount || 0;
+    this.set('seg', `<button role="tab" data-tab="chat" aria-selected="${tab === 'chat'}">대화 · 기록${b(nc)}</button><button role="tab" data-tab="near" aria-selected="${tab === 'near'}">주변${nearAlert ? '<b class="al">!</b>' : nn ? `<span class="cnt">${nn}</span>` : ''}</button>`);
   },
   renderPane(v) {
     const parts = this.splitLog(v);
     this.renderSeg(v, parts);
+    if (this.tab === 'log') this.tab = 'chat';
+    this.nearCount = (this.nearHtml(v).match(/<li class="nc/g) || []).length;
     const tab = this.tab || 'chat';
     const el = $('#pane');
     el.className = 'pane-' + tab;
@@ -520,7 +544,7 @@ const ui = {
     if (tab === 'chat') {
       key = 'c:' + v.role + ':' + (parts.chat.length ? parts.chat[parts.chat.length - 1].id : 0);
       if (this.paneKey === key) return;
-      html = this.chatHtml(v, parts.chat.slice(-80)) || `<li class="empty">아직 나눈 말이 없다. 아래에 쓰면 곁에 있는 사람에게 닿는다. <span class="dim">*행동*은 별표로.</span></li>`;
+      html = this.chatHtml(v, parts.chat.slice(-140)) || `<li class="empty">아직 나눈 말이 없다. 아래에 쓰면 곁에 있는 사람에게 닿는다. <span class="dim">*행동*은 별표로.</span></li>`;
     } else if (tab === 'log') {
       key = 'l:' + v.role + ':' + (parts.log.length ? parts.log[parts.log.length - 1].id : 0);
       if (this.paneKey === key) return;
@@ -571,7 +595,7 @@ const ui = {
         else out.push(`<li class="cn2"><p>${esc(fmt(e.key, e.a, v.role))}</p><time>${t}</time></li>`);
         continue;
       }
-      out.push(`<li class="cn2"><p>${esc(fmt(e.key, e.a, v.role))}</p><time>${t}</time></li>`);
+      out.push(`<li class="nr k-${e.k}"><p>${esc(fmt(e.key, e.a, v.role))}</p><time>${t}</time></li>`);
     }
     return out.join('');
   },
@@ -605,6 +629,7 @@ const ui = {
     if (v.skip && !m.skipVote) gb.push(cmd(`${clock(v.skip.to)}까지 넘기자`, 'skip', ' inv'));
     if (busWindow(v)) { const Lg = ledger(v); gb.push(btn(`05:00 차 · 탄다 ${Lg.canRide ? '가능' : '불가'} / 남는다 아침 ${Lg.mornings}번`, 'data-sheet="goals"')); }
     out.push(card('지금 할 일', '', `<p>${esc(g.main)}</p>${h && h.text ? `<p class="dim">${esc(h.text)}</p>` : ''}`, gb, ' ngoal'));
+    out.push(card(esc(ZONE_TEXT[zid].name), '이 구역', `<p class="dim">${esc(String(ZONE_TEXT[zid].look || '').replace(/\*\*/g, ''))}</p>`, [btn('주변 탐색', 'data-act="search"', ' inv')], ' zone'));
     // 좀비
     if (z) {
       const st = z.st === 'warn' ? `달려든다 — ${secs(z.left)}초` : z.st === 'stun' ? `비틀거린다 · ${secs(z.left)}초` : z.st === 'approach' ? `다가온다 · ${secs(z.left)}초` : '서성인다';
@@ -687,6 +712,7 @@ const ui = {
   // 지금 당장 정해야 하는 것(좀비·막힘·붙잡음)만 띄운다
   renderPrompt(v) {
     const m = v.me, z = v.zone.zombie;
+    if (!(z && z.st === 'warn')) this.warnMax = {};
     let html = '', danger = false;
     if (m.turned) html = '<p><b>감염 전환.</b> 이제 지켜볼 수 있다. 말은 신음으로만 나간다.</p>';
     else if (v.tug) {
@@ -704,7 +730,10 @@ const ui = {
       if (v.partner.rel === 'same' && m.mobile) parts.push(`<button class="btn" data-cmd="cover">${esc(NAMES[v.partner.role])} 엄호</button>`);
       if (m.task && m.autoGuard) parts.push(`<button class="btn risk" data-cmd="persist">${esc(TASK_TEXT[m.task.kind])} 계속 (위험)</button>`);
       const stance = m.stance === 'cover' ? '앞을 막아섰다 — 대신 노출된다.' : m.stance === 'persist' ? '하던 일을 계속한다 — 노출된다.' : !(m.task && ['fight', 'push', 'retreat', 'move'].includes(m.task.kind)) ? '가만히 있으면 몸을 낮춰 피한다.' : '';
-      html = `<p class="big">${esc(zlabel(z))} 달려든다 — ${secs(z.left)}초</p><div class="row wrap">${parts.join('')}</div>${stance ? `<p class="dim">${stance}</p>` : ''}`;
+      this.warnMax = this.warnMax || {};
+      const wk = z.id || 'z'; if (!this.warnMax[wk] || z.left > this.warnMax[wk]) this.warnMax[wk] = z.left;
+      const pct = Math.round(Math.max(0, Math.min(1, z.left / this.warnMax[wk])) * 100);
+      html = `<div class="at"><span>${esc(zlabel(z))} 몸을 낮춘다!</span><span class="sec">${secs(z.left)}초</span></div><div class="ab"><i style="width:${pct}%"></i></div><div class="row wrap">${parts.join('')}</div>${stance ? `<p class="dim">${stance}</p>` : ''}`;
     } else if (v.scene && v.scene.choice) {
       const S = SCENE_TEXT[v.scene.id], ch = v.scene.choice;
       if (ch.role === v.role) html = `<p class="sct">「${esc(S.title)}」</p><div class="col">${ch.opts.map((o) => `<button class="btn scb" data-cmd='${esc(JSON.stringify({ type: 'sceneChoice', id: o }))}'>${esc(S.opts[o])}</button>`).join('')}</div><p class="dim">고르지 않고 말을 걸어도 된다.</p>`;
@@ -896,6 +925,7 @@ const ui = {
     const m = v.me, z = v.zone.id, rows = [];
     const row = (cmd, label, hint, extra = '') => rows.push(`<button class="li" data-cmd='${esc(JSON.stringify(cmd))}'><span>${esc(label)}</span><span class="dim">${esc(hint)}</span>${extra}</button>`);
     const dur = (k) => `${secs(CFG.DUR[k])}초`;
+    row({ type: 'search' }, '주변 탐색', '이 구역을 뒤져 숨은 물건을 찾는다');
     if (z === 'checkpoint') {
       if (!m.passed && v.checkpointOpen) row({ type: 'inspect' }, '검사 받기', `소매를 걷어 보인다 · ${dur('inspect')}`);
       if (m.passed && !m.signed && v.checkpointOpen) row({ type: 'sign' }, '이송 명단에 서명', `되돌릴 수 없음 · ${dur('sign')}`);
@@ -1114,11 +1144,11 @@ const ui = {
     let html;
     if (stage === 1) {
       // 1단계: 내 기억 한 문단만, 정적 속에
-      html = `${head}<div class="endp solo"><p>${esc(ENDING_TEXT[v.role][ek])}</p></div><div class="row"><button class="btn inv" data-act="resNext">다음</button></div>`;
+      html = `<div class="stp">STEP 01 / 03 · 내 기억</div>${head}<div class="endp solo"><p>${esc(ENDING_TEXT[v.role][ek])}</p></div><div class="row"><button class="btn inv" data-act="resNext">다음</button></div>`;
     } else if (stage === 2) {
       // 2단계: 한 줄 남기고, 내 비밀 시트를 혼자 본 뒤, 펼칠지 고른다
       const wait = RV.me ? `<div class="pline"><span>${RV.me === 'open' ? '펼칠 준비를 했다' : '내 시트는 덮어 두었다'} · ${esc(NAMES[pr])}${RV.partner ? '도 준비했다' : '를 기다리는 중'}</span></div>` : '';
-      html = `${head}<div class="endp"><p>${esc(ENDING_TEXT[v.role][ek])}</p></div>
+      html = `<div class="stp">STEP 02 / 03 · 한 줄과 비밀 시트</div>${head}<div class="endp"><p>${esc(ENDING_TEXT[v.role][ek])}</p></div>
       <div class="sh">한 줄 남기기</div>
       <form id="epiForm" class="say"><input id="epi" maxlength="80" placeholder="${esc(c.epilogue[v.role] || '이 판에 남길 한 줄 (선택)')}"><button class="btn">남기기</button></form>
       <div class="sh">이번 판에서 간직할 장면 (마지막 날)</div>
@@ -1133,7 +1163,7 @@ const ui = {
       const storyHtml = story.length ? `<div class="sh">그날 밤의 일</div><div class="story">${story.map((l) => `<p>${esc(l)}</p>`).join('')}</div>` : '';
       const pl = c.partnerLog;
       const plHtml = pl ? `<div class="sh">다른 쪽 화면</div><details class="plog"><summary>${esc(NAMES[pr])}의 화면에 떴던 것 (${pl.length}줄)</summary><ol>${pl.map((le) => `<li><time>${clock(le.t)}</time> ${esc(le.key === 'sc' ? sceneLine(le.a) : fmt(le.key, le.a, pr))}</li>`).join('')}</ol></details>` : '';
-      html = `${head}${endHtml}${row('ren')}${row('akechi')}${storyHtml}${secHtml}${earned}
+      html = `<div class="stp">STEP 03 / 03 · 시점 전환 · 비밀 시트</div>${head}${endHtml}${row('ren')}${row('akechi')}${storyHtml}${secHtml}${earned}
       <div class="sh">마지막으로 건넨 물건</div><p>${esc(give)}</p>
       ${plHtml}
       <div class="row wrap"><button class="btn" data-act="saveImg">한 장으로 저장</button><button class="btn" data-act="restart">다시 하기</button></div>`;
@@ -1187,6 +1217,26 @@ async function saveResultImage(ui) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   toast('이미지를 저장했다');
+}
+
+const ZONES_OUT = { eaves: 1, checkpoint: 1, market: 1, pump: 1, roof: 1 };
+function startSnow() {
+  const cv = $('#snow'); if (!cv) return;
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const flakes = Array.from({ length: 46 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 0.18 + Math.random() * 0.4, dx: -0.12 - Math.random() * 0.2, s: Math.random() < 0.25 ? 2 : 1 }));
+  let shown = null;
+  const draw = () => {
+    const want = !!ui.snowOn && !document.hidden;
+    if (want !== shown) { shown = want; g.clearRect(0, 0, W, H); cv.hidden = !want; }
+    if (want) {
+      g.clearRect(0, 0, W, H); g.fillStyle = 'rgba(255,255,255,.85)';
+      for (const f of flakes) { if (!still) { f.y += f.v; f.x += f.dx; if (f.y > H) { f.y = -2; f.x = Math.random() * W; } if (f.x < 0) f.x = W; } g.fillRect(f.x | 0, f.y | 0, f.s, f.s); }
+    }
+    if (!still) requestAnimationFrame(draw); else setTimeout(draw, 1000);
+  };
+  draw();
 }
 
 function toast(msg, ms = 1800) {
@@ -1327,9 +1377,10 @@ async function joinRoom(raw) {
 function pickRole(r) { if (!pendingCode) return; location.hash = pendingCode; ui.start(new RemoteHost(pendingCode, r), r); }
 
 // 버튼 아이콘
-const TB = { bSearch: ['search', '탐색'], bAct: ['act', '행동'], bBag: ['bag', '가방'], bMap: ['map', '지도'], bLog: ['book', '일지'], bDev: ['gear', '도구'] };
-for (const [id, [ic, label]] of Object.entries(TB)) $('#' + id).innerHTML = `<span class="tile">${icon(ic, 22)}</span><span class="tl">${label}</span>`;
-$('#bHome').innerHTML = icon('home', 18);
+const TB = { bAct: ['act', '행동'], bBag: ['bag', '가방'], bMap: ['map', '지도'], bLog: ['book', '일지'], bDev: ['gear', '도구'] };
+for (const [id, [ic, label]] of Object.entries(TB)) $('#' + id).innerHTML = `${icon(ic, 17)}<span class="tl">${label}</span>`;
+$('#bHome').innerHTML = icon('home', 16);
+startSnow();
 const sc = $('#scene'); sc.width = W; sc.height = H;
 
 showLobby();
