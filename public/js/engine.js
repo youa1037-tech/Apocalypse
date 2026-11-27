@@ -68,6 +68,12 @@ export const CFG = {
   DODGE_FAIL: [0.1, 0.35], // 가만히 몸을 낮췄는데 못 피할 확률: 보통 / 기력 30 미만
   PUSH_FAIL: 0.25,         // 기력 30 미만일 때 밀어내기가 헛도는 확률
   TOUGH: 0.3,              // 단단한 좀비(두 번 쓰러뜨려야 함)가 나올 확률
+  // 좀비 종류: walker 서성이는 것 · sleeper 웅크린 것(소리에 깬다) · tracker 귀 밝은 것(소리를 쫓아 옮겨 다닌다) · horde 떼(여럿)
+  SLEEPER_WAKE: 1.5,       // 웅크린 것이 깨는 소음
+  SLEEPER_AMBUSH: 0.4,     // 웅크린 것을 깨우지 않고 맞서면 더해지는 승산
+  TRACK_MS: 15000,         // 귀 밝은 것이 옆 구역 소리를 따라 움직이는 간격(실제 ms)
+  TRACK_APPROACH_MS: 8000, // 귀 밝은 것은 빨리 다가온다
+  HORDE_HP: 3, HORDE_FIGHT: 0.25, // 떼: 세 번 쓰러뜨려야 하고, 맞서기 승산이 낮다
   // 무기: 가방에 있으면 맞서기·밀어내기에 저절로 쓴다(가장 좋은 것). dur = 쓸 수 있는 횟수
   //   fight 승산 더하기 · keep 밀렸을 때 물릴 확률 빼기(거리를 둔다) · noise 소음 더하기
   //   push 밀어내기가 지쳐도 헛돌지 않음 · stun 비틀거리는 시간 더하기(게임 분)
@@ -150,6 +156,8 @@ export const PERCEIVE = {
   graze:        P({ self: 'self', same: 'see', glass: 'see', near: 'hear', radio: 'radio' }),
   bite:         P({ self: 'self', same: 'see', glass: 'see', door: 'hear', near: 'hear', radio: 'radio' }),
   fight:        P({ self: 'self', same: 'see', glass: 'see', door: 'hear', near: 'hear' }),
+  zWake:        P({ same: 'see', glass: 'see', near: 'hear' }),
+  zFollow:      P({ same: 'see', glass: 'see', near: 'hear' }),
   fightLose:    P({ self: 'self', same: 'see', glass: 'see', door: 'hear', near: 'hear', radio: 'radio' }),
   dodgeFail:    P({ self: 'self', same: 'see', glass: 'see' }),
   pushFail:     P({ self: 'self', same: 'see' }),
@@ -549,7 +557,7 @@ function fire(s, ev) {
       // 처마에 누가 있으면 처마, 아니면 사람이 있는 바깥 구역, 없으면 처마
       const zs = ROLES.map((r) => s.players[r].zone);
       const outs = zs.filter((z) => ZONES[z].outside);
-      spawnZombie(s, zs.includes('eaves') ? 'eaves' : outs.length ? pickOne(s, outs) : 'eaves');
+      spawnZombie(s, zs.includes('eaves') ? 'eaves' : outs.length ? pickOne(s, outs) : 'eaves', { ty: 'walker' });
       break;
     }
     case 'bcastStart':
@@ -657,9 +665,15 @@ export function spawnZombie(s, zone, opts = {}) {
   if (!opts.force && (Object.keys(s.zombies).length >= CFG.MAX_ZOMBIES || zombieIn(s, zone))) return;
   const id = 'z' + s.nextId++;
   const zo = Math.floor(rng(s) * CFG.ORIGINS);
-  const tough = !opts.of && rng(s) < CFG.TOUGH;
-  s.zombies[id] = { id, zone, st: 'idle', until: 0, hp: opts.of || tough ? 2 : 1, maxHp: opts.of || tough ? 2 : 1, entered: 0, zo, of: opts.of || null };
-  if (!opts.of) emit(s, 'zAppear', null, zone, { zone, zo });
+  let ty = opts.of ? 'walker' : opts.ty;
+  if (!ty) {
+    const x = rng(s), far = zone === 'market' || zone === 'pump';
+    ty = far && isDay(s.t) ? (x < 0.4 ? 'sleeper' : 'walker') : !isDay(s.t) && ZONES[zone].outside ? (x < 0.3 ? 'tracker' : 'walker') : 'walker';
+  }
+  const tough = !opts.of && ty !== 'horde' && rng(s) < CFG.TOUGH;
+  const hp = ty === 'horde' ? CFG.HORDE_HP : opts.of || tough ? 2 : 1;
+  s.zombies[id] = { id, zone, ty, st: ty === 'sleeper' ? 'dormant' : 'idle', until: 0, hp, maxHp: hp, entered: 0, zo, of: opts.of || null };
+  if (!opts.of) emit(s, 'zAppear', null, zone, { zone, zo, ty });
 }
 
 function stepNoise(s, d) {
@@ -789,8 +803,26 @@ function stepZombie(s, z) {
     z.scratch = (z.scratch || 0) + CFG.STEP;
     if (z.scratch >= 4) { z.scratch = 0; emit(s, 'doorScratch', null, 'dorm', {}); }
   }
+  // 웅크린 것: 소리가 나야 깬다
+  if (z.st === 'dormant') {
+    if (s.noise[z.zone] >= CFG.SLEEPER_WAKE) { z.st = 'approach'; z.until = s.t + rt(s, CFG.TRACK_APPROACH_MS); emit(s, 'zWake', null, z.zone, { zo: z.zo, of: z.of, ty: z.ty }); }
+    return;
+  }
+  // 귀 밝은 것: 아무도 없으면 옆 구역의 사람·소리를 따라간다(숙직실 안으로는 못 들어간다)
+  if (z.ty === 'tracker' && !here.length) {
+    if (!z.moveAt) z.moveAt = s.t + rt(s, CFG.TRACK_MS);
+    if (s.t >= z.moveAt) {
+      z.moveAt = s.t + rt(s, CFG.TRACK_MS);
+      const score = (x) => occupants(s, x).length * 3 + (s.noise[x] || 0);
+      const cands = ZONES[z.zone].exits.filter((x) => x !== 'dorm' && !zombieIn(s, x) && score(x) >= 1).sort((a, b) => score(b) - score(a));
+      if (cands.length) {
+        const from = z.zone; z.zone = cands[0]; z.st = 'idle';
+        emit(s, 'zFollow', null, z.zone, { zo: z.zo, of: z.of, ty: z.ty, from });
+      }
+    }
+  }
   if (!here.length) { if (z.st !== 'stun') z.st = 'idle'; return; }
-  if (z.st === 'idle') { z.st = 'approach'; z.until = s.t + rt(s, CFG.APPROACH_MS); return; }
+  if (z.st === 'idle') { z.st = 'approach'; z.until = s.t + rt(s, z.ty === 'tracker' ? CFG.TRACK_APPROACH_MS : CFG.APPROACH_MS); return; }
   if (s.t < z.until) return;
   if (z.st === 'approach') {
     z.st = 'warn'; z.until = s.t + rt(s, CFG.WARN_MS);
@@ -831,6 +863,8 @@ export function fightWin(s, r, z) {
   const p = s.players[r], o = s.players[other(r)];
   let w = CFG.FIGHT_WIN;
   if (z.st === 'stun') w += CFG.FIGHT_STUN;
+  if (z.st === 'dormant') w += CFG.SLEEPER_AMBUSH;
+  if (z.ty === 'horde') w -= CFG.HORDE_FIGHT;
   { const wp = weaponOf(s, r, 'fight'); if (wp) w += CFG.WEAPONS[wp.kind].fight; }
   if (o.zone === p.zone && !o.dead && o.task && o.task.kind === 'fight') w += CFG.FIGHT_PAIR;
   if (p.stamina < 30) w -= CFG.LOWSTAM;
@@ -868,8 +902,8 @@ function resolveLunge(s, z, here) {
   for (const p of ps) if (!exposed.includes(p)) spend(p, CFG.COST.guard);
   if (!exposed.length) {
     const t2 = ps.length ? pickOne(s, ps) : null;
-    if (t2 && rng(s) < CFG.DODGE_FAIL[t2.stamina < 30 ? 1 : 0]) { emit(s, 'dodgeFail', t2.role, z.zone, { zo: z.zo, of: z.of }); wound(s, t2, z, 0, 10); return; }
-    emit(s, 'lungeMiss', null, z.zone, { zo: z.zo, of: z.of }); return;
+    if (t2 && rng(s) < CFG.DODGE_FAIL[t2.stamina < 30 ? 1 : 0] * (z.ty === 'horde' ? 2 : 1)) { emit(s, 'dodgeFail', t2.role, z.zone, { zo: z.zo, of: z.of, ty: z.ty }); wound(s, t2, z, 0, 10); return; }
+    emit(s, 'lungeMiss', null, z.zone, { zo: z.zo, of: z.of, ty: z.ty }); return;
   }
   const target = coverer || pickOne(s, exposed);
   if (target.down && !coverer) { kill(s, target.role, 'zombie'); return; }
@@ -879,6 +913,7 @@ function resolveLunge(s, z, here) {
   if (partner && partner.task && partner.task.kind === 'push') prob -= CFG.PUSH_HELP;
   if (target.stamina < 30) prob += CFG.LOWSTAM;
   wound(s, target, z, prob);
+  if (z.ty === 'horde') for (const p2 of exposed) if (p2 !== target && !p2.dead) wound(s, p2, z, prob * 0.6, 10);
 }
 
 // ── 작업 완료 ───────────────────────────────────────────────
@@ -919,10 +954,10 @@ function complete(s, r, t) {
         }
       } else if (t.data.route) {
         if (s.routes[t.data.route] === 'crowd') {
-          emit(s, 'crowd', r, to, { route: t.data.route }); s.noise[to] = Math.max(s.noise[to], 3); spawnZombie(s, to); const zz = zombieIn(s, to); if (zz) { zz.st = 'approach'; zz.until = s.t + rt(s, CFG.LUNGE_AGAIN_MS); }
+          emit(s, 'crowd', r, to, { route: t.data.route }); s.noise[to] = Math.max(s.noise[to], 3); spawnZombie(s, to, { ty: 'horde' }); const zz = zombieIn(s, to); if (zz) { zz.st = 'approach'; zz.until = s.t + rt(s, CFG.LUNGE_AGAIN_MS); }
           if (to === 'checkpoint' && t.data.route === 'main' && rng(s) < CFG.CROWD_FOLLOW) {
             s.flags = s.flags || {}; s.flags.crowdLed = { who: r, day: dayOf(s.t) };
-            spawnZombie(s, 'eaves', { force: true }); addNoise(s, 'dorm', 1);
+            spawnZombie(s, 'eaves', { force: true, ty: 'horde' }); addNoise(s, 'dorm', 1);
             for (const q of ROLES) if (s.players[q].zone === 'dorm' || s.players[q].zone === 'eaves') log(s, q, 'see', 'crowdFollow', { who: r });
           }
         } else if (t.data.route === 'alley' && (to === 'market' || to === 'pump') && rng(s) < CFG.ALLEY_FIND) {
@@ -1048,15 +1083,15 @@ function complete(s, r, t) {
       if (z && wp) wear(s, r, wp);
       if (z && rng(s) >= winP) {
         // 밀렸다: 붙잡힌 채 반격당하고, 좀비는 곧 다시 달려든다
-        emit(s, 'fightLose', r, p.zone, { zo: z.zo, of: z.of, item: wp ? wp.kind : null });
+        emit(s, 'fightLose', r, p.zone, { zo: z.zo, of: z.of, ty: z.ty, item: wp ? wp.kind : null });
         wound(s, p, z, Math.max(0.05, CFG.FIGHT_BITE - (W ? W.keep : 0)));
         z.st = 'approach'; z.until = s.t + rt(s, CFG.LUNGE_AGAIN_MS);
       } else if (z) {
         z.hp -= 1;
-        if (z.hp > 0) { emit(s, 'zHit', r, p.zone, { zo: z.zo, of: z.of, item: wp ? wp.kind : null }); z.st = 'stun'; z.until = s.t + rt(s, CFG.STUN_MS); }
+        if (z.hp > 0) { emit(s, 'zHit', r, p.zone, { zo: z.zo, of: z.of, ty: z.ty, item: wp ? wp.kind : null }); z.st = 'stun'; z.until = s.t + rt(s, CFG.STUN_MS); }
         if (z.hp <= 0) {
           delete s.zombies[z.id];
-          emit(s, 'zDown', r, p.zone, { zo: z.zo, of: z.of, item: wp ? wp.kind : null });
+          emit(s, 'zDown', r, p.zone, { zo: z.zo, of: z.of, ty: z.ty, item: wp ? wp.kind : null });
           if (o.task && o.task.kind === 'fight' && o.zone === p.zone) o.task = null;
           for (const q of ROLES) { const pp = s.players[q]; if (pp.zone === p.zone) { pp.stance = null; if (pp.autoGuard && pp.task) pp.task.paused = false; pp.autoGuard = false; } }
         }
@@ -1068,11 +1103,12 @@ function complete(s, r, t) {
       spend(p, CFG.COST.push);
       addNoise(s, p.zone, 1);
       const pw = weaponOf(s, r, 'push');
-      if (z && !pw && p.stamina < 30 && rng(s) < CFG.PUSH_FAIL) { emit(s, 'pushFail', r, p.zone, { zo: z.zo, of: z.of }); break; }
+      if (z && z.st === 'dormant') { z.st = 'approach'; z.until = s.t + rt(s, CFG.TRACK_APPROACH_MS); emit(s, 'zWake', null, z.zone, { zo: z.zo, of: z.of, ty: z.ty }); break; }
+      if (z && !pw && p.stamina < 30 && rng(s) < CFG.PUSH_FAIL) { emit(s, 'pushFail', r, p.zone, { zo: z.zo, of: z.of, ty: z.ty }); break; }
       if (z) {
-        z.st = 'stun'; z.until = s.t + rt(s, CFG.STUN_MS + (pw ? CFG.WEAPONS[pw.kind].stun * 6000 : 0));
-        if (pw) { addNoise(s, p.zone, CFG.WEAPONS[pw.kind].noise); emit(s, 'spray', r, p.zone, { zo: z.zo, of: z.of }); wear(s, r, pw); }
-        emit(s, 'push', r, p.zone, { zo: z.zo, of: z.of });
+        z.st = 'stun'; z.until = s.t + rt(s, (CFG.STUN_MS + (pw ? CFG.WEAPONS[pw.kind].stun * 6000 : 0)) * (z.ty === 'horde' ? 0.5 : 1));
+        if (pw) { addNoise(s, p.zone, CFG.WEAPONS[pw.kind].noise); emit(s, 'spray', r, p.zone, { zo: z.zo, of: z.of, ty: z.ty }); wear(s, r, pw); }
+        emit(s, 'push', r, p.zone, { zo: z.zo, of: z.of, ty: z.ty });
         for (const q of ROLES) { const pp = s.players[q]; if (pp.zone === p.zone) { pp.stance = null; if (pp.autoGuard && pp.task) pp.task.paused = false; pp.autoGuard = false; } }
       }
       break;
@@ -2112,7 +2148,7 @@ export function viewFor(s, r, sinceLog = 0) {
     floor: itemsAt(s, p.zone).filter((i) => i.found || i.hiddenBy === r).map((i) => ({ ...itemView(s, i, r), hid: !i.found })),
     box: p.zone === 'dorm' ? boxItems(s).map((i) => itemView(s, i, r)) : null,
     sill: ZONES[p.zone].sill && !s.base.boards ? sillItems(s).map((i) => itemView(s, i, r)) : null,
-    zombie: zb ? { zo: zb.zo, of: zb.of, hp: zb.hp, maxHp: zb.maxHp || zb.hp, odds: fightWin(s, r, zb), weapon: (weaponOf(s, r, 'fight') || {}).kind || null, pusher: (weaponOf(s, r, 'push') || {}).kind || null, st: zb.st, left: zb.st === 'warn' || zb.st === 'approach' || zb.st === 'stun' ? Math.max(0, zb.until - s.t) : null } : null,
+    zombie: zb ? { ty: zb.ty || 'walker', zo: zb.zo, of: zb.of, hp: zb.hp, maxHp: zb.maxHp || zb.hp, odds: fightWin(s, r, zb), weapon: (weaponOf(s, r, 'fight') || {}).kind || null, pusher: (weaponOf(s, r, 'push') || {}).kind || null, st: zb.st, left: zb.st === 'warn' || zb.st === 'approach' || zb.st === 'stun' ? Math.max(0, zb.until - s.t) : null, leftMs: zb.st === 'approach' ? Math.max(0, zb.until - s.t) * msPerMin(s.t) / (s.speed || 1) : null } : null,
     noise: Math.round(s.noise[p.zone] * 10) / 10,
     door: p.zone === 'dorm' || p.zone === 'roof' ? { locked: s.roofDoor.locked } : null,
     gate: p.zone === 'checkpoint' || p.zone === 'dorm' ? { open: s.checkpointOpen } : null,

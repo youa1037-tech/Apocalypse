@@ -140,7 +140,14 @@ export const FEAT_TEXT = {
 
 // 좀비 출신 — 엔진은 번호만 갖고 있다(CFG.ORIGINS와 개수를 맞출 것)
 export const ORIGINS = ['경비원', '배달원', '회사원', '학생', '간호사', '노인', '편의점 직원', '택시 기사'];
-export const zlabel = (a) => `좀비(${a.of ? NAMES[a.of] || a.of : ORIGINS[a.zo] ?? '?'})`;
+// 좀비 종류 — 이름 앞에 붙는 말과 주변 카드 설명
+export const ZTYPE_TEXT = {
+  walker: { pre: '', desc: '서성이다 사람을 보면 다가온다.' },
+  sleeper: { pre: '웅크린 ', desc: '구석에 웅크려 있다. 시끄럽게 굴면 깬다. 깨우지 않고 맞서면 거의 이긴다.' },
+  tracker: { pre: '귀 밝은 ', desc: '소리를 쫓는다. 아무도 없으면 옆 구역의 사람과 소리를 따라 옮겨 다니고, 빨리 다가온다.' },
+  horde: { pre: '', desc: '여럿이다. 맞서기 어렵고, 달려들면 곁에 있는 사람까지 다친다. 물러나는 게 낫다.' },
+};
+export const zlabel = (a) => (a.ty === 'horde' ? `좀비 떼(${ORIGINS[a.zo] ?? '?'} 외 여럿)` : `${(ZTYPE_TEXT[a.ty] || ZTYPE_TEXT.walker).pre}좀비(${a.of ? NAMES[a.of] || a.of : ORIGINS[a.zo] ?? '?'})`);
 
 // 상태 꼬리표
 export const STATUS_TEXT = {
@@ -709,6 +716,12 @@ export const LOG = {
   'bite.near': '어딘가에서 몸싸움하는 소리와 짧은 신음.',
   'bite.radio': '무전 너머로 짧은 비명과 잡음.',
   'fight.self': '맞선다.',
+  'zWake.same': (a) => `${zlabel({ ...a, ty: 'walker' })}가 고개를 든다. 깼다!`,
+  'zWake.glass': '창 너머 구석에서 뭔가 몸을 일으킨다.',
+  'zWake.near': '어딘가에서 뭔가 깨어나는 소리.',
+  'zFollow.same': (a) => `${zlabel(a)}가 ${ZONE_TEXT[a.from] ? ZONE_TEXT[a.from].short : '어딘가'} 쪽에서 소리를 따라왔다.`,
+  'zFollow.glass': '창 너머로 뭔가 이쪽으로 걸어온다.',
+  'zFollow.near': '발소리가 옆 구역으로 옮겨 간다.',
   'weaponBroke.self': (a) => `${j(ITEM_TEXT[a.item] ? ITEM_TEXT[a.item].name : a.item, '이')} 못 쓰게 됐다.`,
   'weaponBroke.same': (a) => `${a.who}의 ${j(ITEM_TEXT[a.item] ? ITEM_TEXT[a.item].name : a.item, '이')} 부러진다.`,
   'spray.self': (a) => `소화기를 뿌린다. 하얀 가루 속에서 ${zlabel(a)}가 허우적댄다.`,

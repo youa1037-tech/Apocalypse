@@ -1,5 +1,5 @@
 import { createGame, applyCommand, advance, viewFor, ITEM_USE, CFG, archiveOf, revive, msPerMin } from './engine.js';
-import { SCENE_TEXT, sceneLine, storyLines, secretLine, ENDING_TEXT, endingKey, endingText, PROLOGUE, ROUTE_TEXT, MARK_TEXT, FEAT_TEXT, STATUS_TEXT, STATUS_DESC, AVATARS, TACHIE, BUILD_TEXT, QUESTIONS, OFFER_TEXT, zlabel, NAMES, ZONE_TEXT, ITEM_TEXT, TASK_TEXT, SIGNAL_TEXT, PARTNER_TEXT, RESULT_TEXT, RESULT_CARD, fmt, j, iname, zname } from './text.js';
+import { ZTYPE_TEXT, SCENE_TEXT, sceneLine, storyLines, secretLine, ENDING_TEXT, endingKey, endingText, PROLOGUE, ROUTE_TEXT, MARK_TEXT, FEAT_TEXT, STATUS_TEXT, STATUS_DESC, AVATARS, TACHIE, BUILD_TEXT, QUESTIONS, OFFER_TEXT, zlabel, NAMES, ZONE_TEXT, ITEM_TEXT, TASK_TEXT, SIGNAL_TEXT, PARTNER_TEXT, RESULT_TEXT, RESULT_CARD, fmt, j, iname, zname } from './text.js';
 import { draw, icon, background, W, H } from './scene.js';
 import { TutorialHost, STEPS } from './tutorial.js';
 import * as SFX from './sfx.js';
@@ -530,7 +530,7 @@ const ui = {
     const nc = tab === 'chat' ? 0 : unread(parts.chat, 'chat');
     const nl = tab === 'log' ? 0 : unread(parts.log, 'log');
     const z = v.zone.zombie;
-    const nearAlert = this.sheet !== 'near' && ((z && z.st !== 'idle') || (v.partner.rel === 'same' && v.partner.task && v.partner.task.interruptible));
+    const nearAlert = this.sheet !== 'near' && ((z && z.st !== 'idle' && z.st !== 'dormant') || (v.partner.rel === 'same' && v.partner.task && v.partner.task.interruptible));
     const b = (n) => (n ? `<b>${n > 99 ? '99+' : n}</b>` : '');
     void nl;
     const nn = this.nearCount || 0;
@@ -637,12 +637,12 @@ const ui = {
     out.push(card(esc(ZONE_TEXT[zid].name), '이 구역', `<p class="dim">${esc(String(ZONE_TEXT[zid].look || '').replace(/\*\*/g, ''))}</p>`, [btn('주변 탐색', 'data-act="search"', ' inv')], ' zone'));
     // 좀비
     if (z) {
-      const st = z.st === 'warn' ? `달려든다 — ${secs(z.left)}초` : z.st === 'stun' ? `비틀거린다 · ${secs(z.left)}초` : z.st === 'approach' ? `다가온다 · ${secs(z.left)}초` : '서성인다';
+      const st = z.st === 'dormant' ? '웅크려 있다 — 아직 움직이지 않는다' : z.st === 'warn' ? `달려든다 — ${secs(z.left)}초` : z.st === 'stun' ? `비틀거린다 · ${secs(z.left)}초` : z.st === 'approach' ? `다가온다 · ${secs(z.left)}초` : '서성인다';
       const bs = [];
       if (m.mobile && !m.heavy && z.st !== 'stun') bs.push(cmd('밀어내기', 'push'));
       if (m.mobile && !m.heavy) bs.push(cmd(`맞서기${z.weapon ? `(${iname(z.weapon)})` : ''} · ${oddsWord(z.odds)}`, 'fight', z.odds < 0.5 ? ' risk' : ' inv'));
       bs.push(btn('물러나기', 'data-sheet="map"'));
-      out.push(card(esc(zlabel(z)), esc(st), `${z.of ? `<p class="dim">${esc(NAMES[z.of])}였던 것.</p>` : ''}${(z.maxHp || 1) > 1 ? `<p class="dim">단단하다. 두 번 쓰러뜨려야 한다${z.hp < z.maxHp ? ' — 한 번 남았다' : ''}.</p>` : ''}<p class="dim">밀어내서 비틀거릴 때 맞서면 승산이 오른다. 둘이 같이 맞서도 오른다.</p>`, bs, ' zom' + (z.st === 'warn' ? ' warn' : ''), `<span class="av z">${icon('person', 18)}</span>`));
+      out.push(card(esc(zlabel(z)), esc(st), `<p class="dim">${esc((ZTYPE_TEXT[z.ty] || ZTYPE_TEXT.walker).desc)}</p>${z.of ? `<p class="dim">${esc(NAMES[z.of])}였던 것.</p>` : ''}${(z.maxHp || 1) > 1 ? `<p class="dim">${z.ty === 'horde' ? '세 번' : '두 번'} 쓰러뜨려야 한다${z.hp < z.maxHp ? ` — ${z.hp}번 남았다` : ''}.</p>` : ''}<p class="dim">밀어내서 비틀거릴 때 맞서면 승산이 오른다. 둘이 같이 맞서도 오른다.</p>`, bs, ' zom' + (z.st === 'warn' ? ' warn' : ''), `<span class="av z">${icon('person', 18)}</span>`));
     }
     // 상대
     if (P2.turned) { /* 좀비 카드로 대신 */ }

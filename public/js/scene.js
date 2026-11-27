@@ -340,7 +340,21 @@ function figure(g, x, y, s = 1, posture = 'stand', inv = false) {
   R(g, x - 4 * s, y - h * s, 9 * s, h * s, O); R(g, x - 3 * s, y - (h - 1) * s, 7 * s, (h - 1) * s, F);
   if (posture !== 'sit') R(g, x, y - 8 * s, 1 * s, 8 * s, O);
 }
-function zombie(g, x, y, s, shake) {
+// 웅크린 것: 낮게 엎드린 덩어리
+function crouch(g, x, y, s) {
+  R(g, x - 12 * s, y - 9 * s, 22 * s, 9 * s, Wt); R(g, x - 11 * s, y - 8 * s, 20 * s, 8 * s, B);
+  dither(g, x - 11 * s, y - 8 * s, 20 * s, 8 * s, 1, Wt);
+  R(g, x - 16 * s, y - 8 * s, 6 * s, 6 * s, Wt); R(g, x - 15 * s, y - 7 * s, 4 * s, 4 * s, B);
+}
+function zombie(g, x, y, s, shake, lean = false) {
+  if (lean) { // 귀 밝은 것: 앞으로 기운 자세, 머리를 옆으로
+    const dx = shake ? ((Math.random() * 3) | 0) - 1 : 0; x += dx;
+    R(g, x - 9 * s, y - 22 * s, 7 * s, 7 * s, Wt); R(g, x - 8 * s, y - 21 * s, 5 * s, 5 * s, B); R(g, x - 10 * s, y - 20 * s, 2 * s, 3 * s, Wt);
+    R(g, x - 6 * s, y - 16 * s, 10 * s, 16 * s, Wt); R(g, x - 5 * s, y - 15 * s, 8 * s, 15 * s, B);
+    dither(g, x - 5 * s, y - 15 * s, 8 * s, 15 * s, 1, Wt);
+    R(g, x - 15 * s, y - 13 * s, 10 * s, 2 * s, Wt);
+    return;
+  }
   const dx = shake ? ((Math.random() * 3) | 0) - 1 : 0;
   x += dx;
   R(g, x - 5 * s, y - 24 * s, 7 * s, 7 * s, Wt); R(g, x - 4 * s, y - 23 * s, 5 * s, 5 * s, B); R(g, x - 3 * s, y - 21 * s, 1 * s, 1 * s, Wt);
@@ -390,10 +404,14 @@ export function draw(canvas, v, now) {
   const z = v.zone.zombie;
   if (z) {
     const st = z.st;
-    const s = st === 'warn' ? 1.9 : st === 'approach' ? 1.2 + (1 - Math.min(1, z.left / 2)) * 0.5 : 1.1;
-    const x = st === 'warn' ? 140 : 160 - (st === 'approach' ? (1 - Math.min(1, z.left / 2)) * 16 : 0);
+    const s = st === 'warn' ? 1.9 : st === 'approach' ? 1.2 + (1 - Math.min(1, (z.leftMs || 0) / 12000)) * 0.5 : 1.1;
+    const x = st === 'warn' ? 140 : 160 - (st === 'approach' ? (1 - Math.min(1, (z.leftMs || 0) / 12000)) * 16 : 0);
     if (st === 'warn' && Math.floor(now / 180) % 2) R(g, 0, 0, W, 2, Wt), R(g, 0, H - 2, W, 2, Wt);
-    zombie(g, x | 0, groundY, s, st === 'warn');
+    const ty = z.ty || 'walker';
+    if (st === 'dormant') crouch(g, 158, groundY, 1.2);
+    else if (ty === 'horde') { zombie(g, (x - 22) | 0, groundY - 2, s * 0.85, st === 'warn'); zombie(g, (x + 18) | 0, groundY - 1, s * 0.9, st === 'warn'); zombie(g, x | 0, groundY, s, st === 'warn'); }
+    else if (ty === 'tracker') { zombie(g, x | 0, groundY, s, st === 'warn', true); }
+    else zombie(g, x | 0, groundY, s, st === 'warn');
   }
   return tags;
 }
