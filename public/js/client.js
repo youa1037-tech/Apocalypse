@@ -163,6 +163,8 @@ function witness(v) {
   if (P2.doorTask && P2.doorTask.interruptible) return { text: '문 너머에서 걸쇠가 움직인다.', label: '문 밀기', prog: 0 };
   return null;
 }
+// 맞서기 승산을 말로
+const oddsWord = (o) => (o >= 0.75 ? '승산 높음' : o >= 0.5 ? '반반' : '밀릴 수도');
 const witnessHtml = (w) => `<span class="wt">${esc(w.text)}<span class="bar sm"><i style="width:${Math.round(w.prog * 100)}%"></i></span></span><button class="btn sm inv" data-cmd="block">${esc(w.label)}</button>`;
 
 // ── 목표와 다음 할 일(안내) ─────────────────────────────────
@@ -636,9 +638,9 @@ const ui = {
       const st = z.st === 'warn' ? `달려든다 — ${secs(z.left)}초` : z.st === 'stun' ? `비틀거린다 · ${secs(z.left)}초` : z.st === 'approach' ? `다가온다 · ${secs(z.left)}초` : '서성인다';
       const bs = [];
       if (m.mobile && !m.heavy && z.st !== 'stun') bs.push(cmd('밀어내기', 'push'));
-      if (m.mobile && !m.heavy) bs.push(cmd('맞서기', 'fight', ' inv'));
+      if (m.mobile && !m.heavy) bs.push(cmd(`맞서기 · ${oddsWord(z.odds)}`, 'fight', z.odds < 0.5 ? ' risk' : ' inv'));
       bs.push(btn('물러나기', 'data-sheet="map"'));
-      out.push(card(esc(zlabel(z)), esc(st), z.of ? `<p class="dim">${esc(NAMES[z.of])}였던 것. 두 번은 맞서야 쓰러진다.</p>` : '', bs, ' zom' + (z.st === 'warn' ? ' warn' : ''), `<span class="av z">${icon('person', 18)}</span>`));
+      out.push(card(esc(zlabel(z)), esc(st), `${z.of ? `<p class="dim">${esc(NAMES[z.of])}였던 것.</p>` : ''}${(z.maxHp || 1) > 1 ? `<p class="dim">단단하다. 두 번 쓰러뜨려야 한다${z.hp < z.maxHp ? ' — 한 번 남았다' : ''}.</p>` : ''}<p class="dim">밀어내서 비틀거릴 때 맞서면 승산이 오른다. 둘이 같이 맞서도 오른다.</p>`, bs, ' zom' + (z.st === 'warn' ? ' warn' : ''), `<span class="av z">${icon('person', 18)}</span>`));
     }
     // 상대
     if (P2.turned) { /* 좀비 카드로 대신 */ }
@@ -727,10 +729,10 @@ const ui = {
     } else if (z && z.st === 'warn') {
       danger = true;
       const parts = v.zone.exits.filter((e) => !e.why && !e.far).map((e) => `<button class="btn inv" data-move="${e.to}">${esc(j(ZONE_TEXT[e.to].short, '으로'))}</button>`);
-      if (m.mobile && !m.heavy) parts.push('<button class="btn" data-cmd="push">밀어내기</button>', '<button class="btn" data-cmd="fight">맞서기</button>');
+      if (m.mobile && !m.heavy) parts.push('<button class="btn" data-cmd="push">밀어내기</button>', `<button class="btn${z.odds < 0.5 ? ' risk' : ''}" data-cmd="fight">맞서기 · ${oddsWord(z.odds)}</button>`);
       if (v.partner.rel === 'same' && m.mobile) parts.push(`<button class="btn" data-cmd="cover">${esc(NAMES[v.partner.role])} 엄호</button>`);
       if (m.task && m.autoGuard) parts.push(`<button class="btn risk" data-cmd="persist">${esc(TASK_TEXT[m.task.kind])} 계속 (위험)</button>`);
-      const stance = m.stance === 'cover' ? '앞을 막아섰다 — 대신 노출된다.' : m.stance === 'persist' ? '하던 일을 계속한다 — 노출된다.' : !(m.task && ['fight', 'push', 'retreat', 'move'].includes(m.task.kind)) ? '가만히 있으면 몸을 낮춰 피한다.' : '';
+      const stance = m.stance === 'cover' ? '앞을 막아섰다 — 대신 노출된다.' : m.stance === 'persist' ? '하던 일을 계속한다 — 노출된다.' : !(m.task && ['fight', 'push', 'retreat', 'move'].includes(m.task.kind)) ? (m.stamina < 30 ? '가만히 있으면 몸을 낮춰 피한다 — 지쳐서 못 피할 수도 있다.' : '가만히 있으면 몸을 낮춰 피한다. 맞서다 밀리면 물릴 수 있다.') : '';
       this.warnMax = this.warnMax || {};
       const wk = z.id || 'z'; if (!this.warnMax[wk] || z.left > this.warnMax[wk]) this.warnMax[wk] = z.left;
       const pct = Math.round(Math.max(0, Math.min(1, z.left / this.warnMax[wk])) * 100);

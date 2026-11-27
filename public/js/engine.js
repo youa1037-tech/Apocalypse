@@ -53,6 +53,14 @@ export const CFG = {
   COST: { move: 3, search: 4, fight: 15, push: 6, guard: 4, cover: 5, contest: 8, sign: 1, inspect: 1, retreat: 2 },
   APPROACH: 2, WARN: 1, STUN: 2,          // 좀비: 접근 2분 → 달려듦 예고 1분(실제 6초)
   BITE_P: 0.55, PUSH_HELP: 0.3, LOWSTAM: 0.2,
+  FIGHT_WIN: 0.45,         // 맞서기: 혼자, 멀쩡한 좀비 상대로 이길 확률
+  FIGHT_STUN: 0.35,        //   밀어내서 비틀거릴 때 더해지는 확률
+  FIGHT_PAIR: 0.2,         //   둘이 같이 맞서면 더해지는 확률
+  FIGHT_DARK: 0.1,         //   밤 바깥에서 조명 없이 싸우면 빠지는 확률
+  FIGHT_BITE: 0.45,        // 맞서다 밀리면 물릴 확률(아니면 할퀴임)
+  DODGE_FAIL: [0.1, 0.35], // 가만히 몸을 낮췄는데 못 피할 확률: 보통 / 기력 30 미만
+  PUSH_FAIL: 0.25,         // 기력 30 미만일 때 밀어내기가 헛도는 확률
+  TOUGH: 0.3,              // 단단한 좀비(두 번 쓰러뜨려야 함)가 나올 확률
   SYMPTOM_AFTER: 60, RESTRICT_AFTER: 60,  // 진행성: 물린 뒤 60분 첫 증상, 다시 60분 뒤 이동 제한
   NOISE_SPAWN: 5, MAX_ZOMBIES: 2,
 };
@@ -120,6 +128,9 @@ export const PERCEIVE = {
   graze:        P({ self: 'self', same: 'see', glass: 'see', near: 'hear', radio: 'radio' }),
   bite:         P({ self: 'self', same: 'see', glass: 'see', door: 'hear', near: 'hear', radio: 'radio' }),
   fight:        P({ self: 'self', same: 'see', glass: 'see', door: 'hear', near: 'hear' }),
+  fightLose:    P({ self: 'self', same: 'see', glass: 'see', door: 'hear', near: 'hear', radio: 'radio' }),
+  dodgeFail:    P({ self: 'self', same: 'see', glass: 'see' }),
+  pushFail:     P({ self: 'self', same: 'see' }),
   zDown:        P({ self: 'self', same: 'see', glass: 'see', door: 'hear', near: 'hear' }),
   push:         P({ self: 'self', same: 'see', glass: 'see' }),
   cover:        P({ self: 'self', same: 'see' }),
@@ -597,7 +608,8 @@ export function spawnZombie(s, zone, opts = {}) {
   if (!opts.force && (Object.keys(s.zombies).length >= CFG.MAX_ZOMBIES || zombieIn(s, zone))) return;
   const id = 'z' + s.nextId++;
   const zo = Math.floor(rng(s) * CFG.ORIGINS);
-  s.zombies[id] = { id, zone, st: 'idle', until: 0, hp: opts.of ? 2 : 1, entered: 0, zo, of: opts.of || null };
+  const tough = !opts.of && rng(s) < CFG.TOUGH;
+  s.zombies[id] = { id, zone, st: 'idle', until: 0, hp: opts.of || tough ? 2 : 1, maxHp: opts.of || tough ? 2 : 1, entered: 0, zo, of: opts.of || null };
   if (!opts.of) emit(s, 'zAppear', null, zone, { zone, zo });
 }
 
@@ -727,25 +739,21 @@ function stepZombie(s, z) {
   }
 }
 
-function resolveLunge(s, z, here) {
-  const safe = (p) => p.task && (p.task.kind === 'retreat' || p.task.kind === 'move');
-  const ps = here.map((r) => s.players[r]).filter((p) => !safe(p));
-  // 노출: 하던 일 계속(위험 감수) · 엄호 · 맞서기/밀어내기 도중. 그 외(경계)는 확실히 피한다.
-  const exposed = ps.filter((p) => p.down || p.stance === 'persist' || p.stance === 'cover' || (p.task && (p.task.kind === 'fight' || p.task.kind === 'push')));
-  const coverer = exposed.find((p) => p.stance === 'cover');
-  for (const p of ps) if (!exposed.includes(p)) spend(p, CFG.COST.guard);
-  if (!exposed.length) { emit(s, 'lungeMiss', null, z.zone, { zo: z.zo, of: z.of }); return; }
-  const target = coverer || pickOne(s, exposed);
-  if (target.down && !coverer) { kill(s, target.role, 'zombie'); return; }
-  if (target.stance === 'cover') spend(target, CFG.COST.cover);
-  const partner = ps.find((p) => p !== target);
-  let prob = CFG.BITE_P;
-  if (partner && partner.task && partner.task.kind === 'push') prob -= CFG.PUSH_HELP;
-  if (target.stamina < 30) prob += CFG.LOWSTAM;
+// 맞서기 승산: 혼자·멀쩡한 상대면 반반 아래, 밀어내 비틀거리게 하거나 둘이 붙으면 올라간다
+export function fightWin(s, r, z) {
+  const p = s.players[r], o = s.players[other(r)];
+  let w = CFG.FIGHT_WIN;
+  if (z.st === 'stun') w += CFG.FIGHT_STUN;
+  if (o.zone === p.zone && !o.dead && o.task && o.task.kind === 'fight') w += CFG.FIGHT_PAIR;
+  if (p.stamina < 30) w -= CFG.LOWSTAM;
+  if (!isDay(s.t) && ZONES[p.zone].outside && !hasKind(s, r, 'light')) w -= CFG.FIGHT_DARK;
+  return Math.max(0.1, Math.min(0.95, w));
+}
+// 물리거나 할퀴인다
+function wound(s, target, z, prob, dmgGraze = 15) {
   if (s.biteMode === 'none') prob = 0;
   if (s.biteMode === 'prog' || s.biteMode === 'non') prob = Math.max(prob, 0.95);
-  const roll = rng(s);
-  if (roll < prob && !target.bite) {
+  if (rng(s) < prob && !target.bite) {
     const prog = s.biteMode === 'prog' ? true : s.biteMode === 'non' ? false : rng(s) < 0.5;
     target.bite = {
       t: s.t, prog, suppressed: false, stage: 0, known: false, penalty: false,
@@ -756,12 +764,33 @@ function resolveLunge(s, z, here) {
     target.bleed = true;
     emit(s, 'bite', target.role, z.zone, { zo: z.zo, of: z.of, dmg: 10 });
   } else {
-    target.hp = Math.max(0, target.hp - 15);
+    target.hp = Math.max(0, target.hp - dmgGraze);
     target.scratchUntil = s.t + 120;
     if (rng(s) < 0.4) target.bleed = true;
-    emit(s, 'graze', target.role, z.zone, { zo: z.zo, of: z.of, dmg: 15 });
+    emit(s, 'graze', target.role, z.zone, { zo: z.zo, of: z.of, dmg: dmgGraze });
   }
   if (target.hp <= 0) target.down = true;
+}
+function resolveLunge(s, z, here) {
+  const safe = (p) => p.task && (p.task.kind === 'retreat' || p.task.kind === 'move');
+  const ps = here.map((r) => s.players[r]).filter((p) => !safe(p));
+  // 노출: 하던 일 계속(위험 감수) · 엄호 · 맞서기/밀어내기 도중. 그 외(경계)는 확실히 피한다.
+  const exposed = ps.filter((p) => p.down || p.stance === 'persist' || p.stance === 'cover' || (p.task && (p.task.kind === 'fight' || p.task.kind === 'push')));
+  const coverer = exposed.find((p) => p.stance === 'cover');
+  for (const p of ps) if (!exposed.includes(p)) spend(p, CFG.COST.guard);
+  if (!exposed.length) {
+    const t2 = ps.length ? pickOne(s, ps) : null;
+    if (t2 && rng(s) < CFG.DODGE_FAIL[t2.stamina < 30 ? 1 : 0]) { emit(s, 'dodgeFail', t2.role, z.zone, { zo: z.zo, of: z.of }); wound(s, t2, z, 0, 10); return; }
+    emit(s, 'lungeMiss', null, z.zone, { zo: z.zo, of: z.of }); return;
+  }
+  const target = coverer || pickOne(s, exposed);
+  if (target.down && !coverer) { kill(s, target.role, 'zombie'); return; }
+  if (target.stance === 'cover') spend(target, CFG.COST.cover);
+  const partner = ps.find((p) => p !== target);
+  let prob = CFG.BITE_P;
+  if (partner && partner.task && partner.task.kind === 'push') prob -= CFG.PUSH_HELP;
+  if (target.stamina < 30) prob += CFG.LOWSTAM;
+  wound(s, target, z, prob);
 }
 
 // ── 작업 완료 ───────────────────────────────────────────────
@@ -925,7 +954,12 @@ function complete(s, r, t) {
       const z = zombieIn(s, p.zone);
       spend(p, CFG.COST.fight);
       addNoise(s, p.zone, 2);
-      if (z) {
+      if (z && rng(s) >= fightWin(s, r, z)) {
+        // 밀렸다: 붙잡힌 채 반격당하고, 좀비는 곧 다시 달려든다
+        emit(s, 'fightLose', r, p.zone, { zo: z.zo, of: z.of });
+        wound(s, p, z, CFG.FIGHT_BITE);
+        z.st = 'approach'; z.until = s.t + 0.5;
+      } else if (z) {
         z.hp -= 1;
         if (z.hp > 0) { emit(s, 'zHit', r, p.zone, { zo: z.zo, of: z.of }); z.st = 'stun'; z.until = s.t + CFG.STUN; }
         if (z.hp <= 0) {
@@ -941,6 +975,7 @@ function complete(s, r, t) {
       const z = zombieIn(s, p.zone);
       spend(p, CFG.COST.push);
       addNoise(s, p.zone, 1);
+      if (z && p.stamina < 30 && rng(s) < CFG.PUSH_FAIL) { emit(s, 'pushFail', r, p.zone, { zo: z.zo, of: z.of }); break; }
       if (z) {
         z.st = 'stun'; z.until = s.t + CFG.STUN;
         emit(s, 'push', r, p.zone, { zo: z.zo, of: z.of });
@@ -1925,7 +1960,7 @@ export function viewFor(s, r, sinceLog = 0) {
     floor: itemsAt(s, p.zone).filter((i) => i.found || i.hiddenBy === r).map((i) => ({ ...itemView(s, i, r), hid: !i.found })),
     box: p.zone === 'dorm' ? boxItems(s).map((i) => itemView(s, i, r)) : null,
     sill: ZONES[p.zone].sill && !s.base.boards ? sillItems(s).map((i) => itemView(s, i, r)) : null,
-    zombie: zb ? { zo: zb.zo, of: zb.of, hp: zb.hp, st: zb.st, left: zb.st === 'warn' || zb.st === 'approach' || zb.st === 'stun' ? Math.max(0, zb.until - s.t) : null } : null,
+    zombie: zb ? { zo: zb.zo, of: zb.of, hp: zb.hp, maxHp: zb.maxHp || zb.hp, odds: fightWin(s, r, zb), st: zb.st, left: zb.st === 'warn' || zb.st === 'approach' || zb.st === 'stun' ? Math.max(0, zb.until - s.t) : null } : null,
     noise: Math.round(s.noise[p.zone] * 10) / 10,
     door: p.zone === 'dorm' || p.zone === 'roof' ? { locked: s.roofDoor.locked } : null,
     gate: p.zone === 'checkpoint' || p.zone === 'dorm' ? { open: s.checkpointOpen } : null,
