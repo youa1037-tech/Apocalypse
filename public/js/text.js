@@ -338,7 +338,7 @@ export const ENDING_TEXT = {
     stayedApart: (c) => `${zn(c, 'ren')}에서 엔진 소리가 멀어지는 걸 들었다. 소리가 다 끊긴 뒤에도 아케치는 오지 않았다. 아마 그도 어딘가에서 같은 소리를 듣고 있었을 것이다.`,
     iRefused: '검사원이 고개를 저었다. 아무 말 없이 줄에서 빠졌다. 소매 밑의 자국이 그제야 아프기 시작했다.',
     iStayedAway: (c) => `${zn(c, 'ren')}에서 엔진 소리만 들었다. 그 차에 누가 탔는지는, 돌아와서 빈자리를 보고서야 알았다.`,
-    theyTurned: '그가 마지막으로 낸 소리는 이름이 아니었다. 그래도 렌은 그걸 대답이라고 여기기로 했다.',
+    theyTurned: '그가 마지막으로 낸 소리는 이름이 아니었다. 그래도 나는 그걸 대답이라고 여기기로 했다.',
     iTurned: '마지막으로 기억나는 건 손목을 붙잡던 손의 온도다. 차가웠는지 따뜻했는지는, 이제 알 수 없다.',
     theyDied: '새벽이 왔다. 다섯 시는 둘이 함께 세던 숫자였다. 혼자 세니 너무 짧았다.',
     iDied: '아케치가 뭐라고 했다. 처음으로 가면 없는 목소리였는데, 끝까지 들을 수가 없었다.',
@@ -361,7 +361,18 @@ export const ENDING_TEXT = {
 };
 const zn = (c, r) => { const z = c.flags && c.flags.busZones ? c.flags.busZones[r] : c.players[r].zone; return ZONE_TEXT[z] ? ZONE_TEXT[z].name : '대피소'; };
 // 결말 문단(문장이 함수면 그 판의 자리를 넣어 쓴다)
-export function endingText(c, me) { const t = ENDING_TEXT[me][endingKey(c, me)]; return typeof t === 'function' ? t(c) : t || ''; }
+const PROMISE_TEXT = { ren: '‘같이 가거나, 같이 남거나.’ 그렇게 말한 건 나였다.', akechi: '‘같이 가거나, 같이 남거나.’ 렌은 그렇게 말했었다.' };
+export function endingText(c, me) {
+  const k = endingKey(c, me), f = c.flags || {};
+  let t = ENDING_TEXT[me][k]; t = typeof t === 'function' ? t(c) : t || '';
+  const gone = ['iDied', 'iTurned', 'bothGone'].includes(k);
+  // 마지막 밤의 약속을 한 사람만 떠난 판에서 깨뜨렸다
+  if (f.n2Together && ['iWent', 'iStayed', 'iStayedAway', 'iRefused'].includes(k)) t = `${PROMISE_TEXT[me]} ${t}`;
+  const tail = [];
+  if (f.n2Coffee && !gone) tail.push(k === 'together' ? '커피는 르블랑에서 갚기로 했다.' : ['theyDied', 'theyTurned'].includes(k) ? '빚진 커피 한 잔이 남았다.' : '커피 한 잔은 아직 빚으로 남아 있다.');
+  if (f.apronTied && !gone) tail.push(me === 'ren' ? '허리 뒤의 매듭은 아직 풀지 않았다.' : '그 매듭은 내가 묶은 거였다.');
+  return [t, ...tail].join(' ');
+}
 export function endingKey(c, me) {
   const P = c.players, a = P[me].fate, b = P[me === 'ren' ? 'akechi' : 'ren'].fate;
   const F = c.flags || {}, Z = F.busZones;
@@ -414,6 +425,7 @@ export function storyLines(f) {
       }
     }
   }
+  if (f.manMet) out.push(f.manTold === 'full' ? '둘째 날 밤, 무전기를 준 남자가 창을 두드렸다. 물을 받고, 끝 문장과 열쇠의 주인을 털어놓았다.' : '둘째 날 밤, 무전기를 준 남자가 창을 두드리고 갔다.');
   if (f.crowdLed) out.push(`${f.crowdLed.day}일, ${j(N(f.crowdLed.who), '이')} 큰길의 무리를 대피소 앞까지 끌고 왔다.`);
   if (f.lastMeal) {
     const LM = { lockIn: '마지막 배급을 둘이 나눠 먹고, 문을 걸었다.', walk: '마지막 배급을 먹고, 걸어서 나가기로 했다.', yield: `모자란 아침, ${j(N(f.lastMeal.who), '은')} 자기 몫을 넘겼다.`, split: '모자란 아침을 반씩 나눴다.', goOut: `모자란 아침, ${j(N(f.lastMeal.who), '은')} 혼자 다시 문을 나섰다.`, apart: '마지막 아침, 둘은 같은 곳에 있지 않았다.', interrupted: '마지막 아침은 끝까지 먹지 못했다.' };
@@ -506,6 +518,13 @@ export const LOG = {
   nStrangerBoards: '판자를 두드리는 소리. 누군가 한참 서 있다 간다.',
   nStrangerThanks: (a) => `창틀의 ${a.item ? ITEM_TEXT[a.item].name : '물건'}이 사라졌다. “…고마워요.”`,
   nStrangerGone: '두드리는 소리가 멎었다. 발소리가 멀어진다.',
+  nManBoards: '판자 너머에서 낮은 목소리. “…무전기, 잘 쓰고 있어요?” 대답을 기다리지 않고 발소리가 멀어진다.',
+  nManPart: '멀어지던 발소리가 한 번 멈춘다. “끝 문장, 들었죠? 그거면 됐어요.”',
+  nManTell1: '“방송 끝 문장은 내가 붙였어요. 물린 사람은 안 태운대요. 위에서는 그 말을 빼고 내보내더라고.”',
+  nManTell2: '“배수관 열쇠도 나예요. 검문대에서 쫓겨난 사람이 들어갈 문 하나쯤은 있어야지. 지하 중계기도 내가 켜 뒀어요.”',
+  'special.akechi.man': '(이 목소리. 오후에 무전기를 쥐여 준 그 남자다.)',
+  'special.akechi.bus': '(그 문장이다. 덧입힌 건 음모가 아니라 경고였다.)',
+  'special.ren.bus': '(아케치가 말한 그 문장이다.)',
   nSleeptalk: (a) => `${j(a.who, '이')} 잠결에 뭔가 중얼거린다. 알아들을 수 있는 건 누군가의 이름 하나뿐이다.`,
   nQuiet: (a) => `아주 조용하다. (말 걸 거리 — ${QUESTIONS[a.q]})`,
   'fillStart.self': '펌프 손잡이를 잡는다.',
@@ -532,7 +551,7 @@ export const LOG = {
   paGateClose: '[안내] 검문을 닫았습니다.',
   paDusk: '[안내] 해가 졌습니다. 바깥 활동을 삼가십시오.',
   paBus: '[안내] 05시, 검문대 앞에 이송 차량이 도착합니다. 이송증을 준비하십시오.',
-  paBusHere: '[안내] 이송 차량이 도착했습니다. 05시 15분에 출발합니다. 탑승 전 재검사가 있습니다.',
+  paBusHere: '[안내] 이송 차량이 도착했습니다. 05시 15분에 출발합니다. 탑승 전 재검사가 있습니다. 물린 자국이 있는 분은 탑승할 수 없습니다.',
   paBusGone: '[안내] 이송 차량이 출발했습니다. 다음 차량은 미정입니다.',
   'dayStart.self': (a) => `— ${a.day}일째. —`,
   'scout.self': (a) => `큰길: ${a.main === 'crowd' ? '무리가 몰려 있다' : '조용하다'}.` + (a.alley ? ` 뒷골목: ${a.alley === 'crowd' ? '무리가 몰려 있다' : '조용하다'}.` : ''),
@@ -590,7 +609,6 @@ export const LOG = {
   'searchDone.found': (a) => `뒤져서 찾았다: ${a.items.map((k) => ITEM_TEXT[k].name).join(', ')}.`,
   'searchDone.none': '더 찾을 만한 건 없어 보인다.',
   'special.ren.eaves': '(배수관 뒤에 뭔가 끼워 둔 자국. 누군가 이 길로 드나들었다.)',
-  'special.ren.roof': '(환기구 덮개 나사만 새것이다. 여기 뭘 숨겨 뒀다.)',
   'special.ren.door': '(옥상 문 걸쇠가 안쪽에서만 걸린다. 안에서 열어 주면 이 길로 들어갈 수 있다.)',
 
   // 물건

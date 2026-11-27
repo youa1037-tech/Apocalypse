@@ -579,7 +579,12 @@ function fire(s, ev) {
       const st = s.stranger; s.stranger = null;
       if (!st) break;
       const gift = sillItems(s).find((i) => ['water', 'food', 'jug', 'bandage', 'blanket'].includes(i.kind));
-      for (const r of ROLES) if (s.players[r].zone === 'dorm' || s.players[r].zone === 'eaves') log(s, r, 'hear', gift ? 'nStrangerThanks' : 'nStrangerGone', { item: gift ? gift.kind : null });
+      for (const r of ROLES) if (s.players[r].zone === 'dorm' || s.players[r].zone === 'eaves') {
+        log(s, r, 'hear', gift ? 'nStrangerThanks' : 'nStrangerGone', { item: gift ? gift.kind : null });
+        // 그 남자라면: 물을 받으면 다 털어놓고, 못 받으면 한 마디만 남긴다
+        if (st.man) { if (gift) { log(s, r, 'hear', 'nManTell1', {}); log(s, r, 'hear', 'nManTell2', {}); s.flags['knowRecheck_' + r] = true; } else log(s, r, 'hear', 'nManPart', {}); }
+      }
+      if (st.man) s.flags.manTold = gift ? 'full' : 'part';
       if (gift) { delete s.items[gift.id]; feat(s, 'stranger', { item: gift.kind }); }
       break;
     }
@@ -608,7 +613,13 @@ function fire(s, ev) {
     }
     case 'bus':
       s.busHere = true;
-      for (const r of ROLES) log(s, r, 'pa', 'paBusHere', {});
+      for (const r of ROLES) {
+        log(s, r, 'pa', 'paBusHere', {});
+        const p = s.players[r];
+        if (p.dead) continue;
+        if (r === 'akechi' && p.listened) log(s, r, 'self', 'special.akechi.bus', {});
+        else if (r === 'ren' && (p.listened || (s.flags && s.flags.broadcastShared))) log(s, r, 'self', 'special.ren.bus', {});
+      }
       break;
     case 'busGone': {
       s.busHere = false;
@@ -1826,7 +1837,8 @@ function nightEvent(s) {
   const asleep = inDorm.filter((r) => s.players[r].asleep);
   const pool = ['scratch', 'sos', 'stranger', 'quiet', 'quiet'];
   if (asleep.length && awake.length) pool.push('sleeptalk', 'sleeptalk');
-  const kind = pickOne(s, pool);
+  s.flags = s.flags || {};
+  const kind = !s.flags.manMet && dayOf(s.t) >= 2 ? 'stranger' : pickOne(s, pool);
   const hearAll = (key, a = {}, k = 'hear') => { for (const r of inDorm) { if (s.players[r].asleep && k !== 'radio') continue; log(s, r, k, key, a); } };
   if (kind === 'scratch') {
     if (s.base.boards) { hearAll('nScratchBoards'); return; }
@@ -1836,10 +1848,16 @@ function nightEvent(s) {
     s.sos = { until: s.t + 15 };
     for (const r of ROLES) if (s.players[r].zone === 'dorm' || hasKind(s, r, 'radio')) log(s, r, 'radio', 'nSos', {});
   } else if (kind === 'stranger') {
-    if (s.base.boards) { hearAll('nStrangerBoards'); return; }
-    s.stranger = { until: s.t + 12 };
+    const first = !s.flags.manMet;
+    s.flags.manMet = true;
+    if (s.base.boards) {
+      hearAll(first ? 'nManBoards' : 'nStrangerBoards');
+      if (first) { s.flags.manTold = 'part'; for (const r of inDorm) if (r === 'akechi' && !s.players[r].asleep) log(s, r, 'self', 'special.akechi.man', {}); }
+      return;
+    }
+    s.stranger = { until: s.t + 12, man: first };
     s.sched.push({ t: s.t + 12, kind: 'strangerEnd', data: {}, done: false });
-    for (const r of ROLES) if (s.players[r].zone === 'dorm' || s.players[r].zone === 'eaves') { if (s.players[r].asleep) wake(s, r); log(s, r, 'hear', 'nStranger', {}); }
+    for (const r of ROLES) if (s.players[r].zone === 'dorm' || s.players[r].zone === 'eaves') { if (s.players[r].asleep) wake(s, r); log(s, r, 'hear', 'nStranger', {}); if (first && r === 'akechi') log(s, r, 'self', 'special.akechi.man', {}); }
   } else if (kind === 'sleeptalk') {
     for (const r of awake) log(s, r, 'hear', 'nSleeptalk', { who: asleep[0] });
   } else {
@@ -2140,6 +2158,7 @@ export function viewFor(s, r, sinceLog = 0) {
   v.base = s.base; v.buildNeed = CFG.BUILD;
   v.scene = s.scene ? { id: s.scene.id, data: s.scene.data, choice: s.scene.choice ? { role: s.scene.choice.role, opts: s.scene.choice.opts.map((o2) => o2[0]) } : null } : null;
   { const rec = recFor(s, r); v.rec = rec ? { n: rec.lines.length, plays: rec.plays, from: rec.from, t: rec.last, dorm: rec === s.dormRec } : null; }
+  v.knowRecheck = !!(p.listened || (s.flags && (s.flags.broadcastShared || s.flags['knowRecheck_' + r])) || s.busHere);
   v.crowdAsk = p.crowdAsk ? { left: Math.max(0, p.crowdAsk.until - s.t), drop: (bagOf(s, r).filter((i) => !['key', 'pass', 'note', 'result'].includes(i.kind)).sort((a, b) => sizeOf(b) - sizeOf(a))[0] || {}).kind || null } : null;
   v.under = { knows: !!p.knowsUnder, open: s.t >= CFG.BROADCASTS[0], dur: CFG.UNDER_DUR };
   v.offer = s.offer && (s.offer.to === r || s.offer.from === r) ? { kind: s.offer.kind, style: s.offer.style || null, mine: s.offer.from === r } : null;
