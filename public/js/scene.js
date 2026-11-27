@@ -1,4 +1,4 @@
-// 1비트 도트 장면 (임시 그림). 사용자가 320×180 흑백 PNG를 주면 BG_IMAGES에 넣어 교체한다.
+// 도트 장면. 구역 배경은 겨울 도트(사용자 시안). PNG를 쓰려면 BG_IMAGES에 넣는다(192×120 비율).
 export const W = 192, H = 120;
 export const BG_IMAGES = {}; // 예: { eaves: 'img/eaves.png' } — 있으면 그 그림을 배경으로 씀
 
@@ -44,138 +44,292 @@ function skyline(g, baseY, seed, lit = 0.12) {
   }
 }
 
-function bgEaves(g) {
-  R(g, 0, 0, W, H, B);
-  stars(g, 50, 50, 7);
-  skyline(g, 78, 3, 0.05);
-  // 본관 외벽
-  R(g, 96, 14, 96, 82, Wt); dither(g, 97, 15, 94, 80, 2, B);
-  // 숙직실 창
-  box(g, 118, 34, 46, 32, Wt); R(g, 140, 35, 2, 30, B); R(g, 119, 49, 44, 2, B);
-  dither(g, 120, 52, 18, 12, 1, B); R(g, 122, 56, 14, 2, B); R(g, 145, 38, 14, 9, B); R(g, 146, 39, 2, 2, Wt);
-  R(g, 116, 66, 50, 3, Wt); R(g, 116, 69, 50, 1, B); // 창틀
-  // 처마
-  for (let i = 0; i < 18; i++) R(g, 84 + i * 6, 6 + (i % 2), 6, 6, B);
-  R(g, 84, 12, 108, 2, Wt); R(g, 84, 14, 108, 2, B);
-  for (let i = 0; i < 14; i++) R(g, 90 + i * 7, 16, 1, 2 + (i * 5) % 5, Wt);
-  // 배수관
-  R(g, 172, 14, 5, 82, B); R(g, 173, 14, 1, 82, Wt); for (let y = 24; y < 96; y += 16) R(g, 171, y, 7, 2, Wt);
-  // 눈 덮인 바닥
-  R(g, 0, 96, W, 24, Wt); dither(g, 0, 96, W, 3, 2, B);
-  const r = rand(11); for (let i = 0; i < 40; i++) R(g, r() * W, 100 + r() * 20, 2, 1, B);
+// ── 구역 배경: 겨울 도트(사용자 시안 「인게임 도트 맵 배경 6종」) ──
+// Shared clean winter pixel palette (exact vibe of the first mockup)
+const C = {
+  sky: '#070C15',
+  skyDusk: '#0B1322',
+  star: 'rgba(203, 224, 248, 0.55)',
+  city: '#0F1829',
+  cityRim: '#22324F',
+  wall: '#182235',
+  wallDark: '#101827',
+  wallHi: '#273754',
+  roof: '#0B111E',
+  snow: '#DCEBFA',
+  snowShade: '#94B2D6',
+  ice: '#93C5FD',
+  warm: '#FDE68A',
+  warmDim: 'rgba(253, 230, 138, 0.22)',
+  warmSoft: 'rgba(253, 230, 138, 0.12)',
+  red: '#FB7185',
+  redDim: '#9F1239',
+  metal: '#475569',
+  metalHi: '#94A3B8',
+  black: '#05080F',
+  stripeY: '#EAB308',
+  stripeR: '#E11D48',
+  teal: '#5EEAD4',
+};
+
+function starsC(g, n, maxY, seed) {
+  const r = rand(seed);
+  for (let i = 0; i < n; i++) R(g, r() * W, r() * maxY, 1, 1, C.star);
 }
-function bgCheckpoint(g) {
-  R(g, 0, 0, W, H, B);
-  stars(g, 40, 40, 21);
-  // 건물과 셔터
-  R(g, 100, 20, 92, 70, Wt); dither(g, 101, 21, 90, 68, 2, B);
-  box(g, 118, 40, 56, 50, Wt); for (let y = 43; y < 88; y += 3) R(g, 119, y, 54, 1, B);
-  R(g, 112, 34, 68, 6, B); R(g, 113, 35, 66, 4, Wt);
-  // 가로등과 빛
-  R(g, 22, 18, 3, 78, Wt); R(g, 16, 16, 15, 4, Wt);
-  for (let y = 20; y < 96; y++) { const w = (y - 20) * 0.55; dither(g, (23 - w) | 0, y, (w * 2) | 0, 1, y < 60 ? 1 : 2, Wt); }
-  // 땅
-  R(g, 0, 96, W, 24, Wt); dither(g, 0, 96, W, 2, 2, B);
-  // 바리케이드
-  for (let i = 0; i < 3; i++) {
-    const x = 34 + i * 22;
-    R(g, x, 76, 20, 10, Wt); R(g, x, 76, 20, 1, B); R(g, x, 85, 20, 1, B);
-    for (let k = 0; k < 20; k += 6) line(g, x + k, 85, Math.min(x + k + 5, x + 19), 77, B);
-    R(g, x + 2, 86, 2, 10, Wt); R(g, x + 16, 86, 2, 10, Wt);
+function skylineC(g, baseY, seed, lit = 0.08) {
+  const r = rand(seed);
+  let x = 0;
+  while (x < W) {
+    const w = 10 + r() * 18, h = 12 + r() * 30;
+    R(g, x, baseY - h, w, h, C.city);
+    R(g, x, baseY - h, w, 1, C.cityRim);
+    for (let yy = baseY - h + 4; yy < baseY - 3; yy += 5)
+      for (let xx = x + 3; xx < x + w - 3; xx += 4)
+        if (r() < lit) R(g, xx, yy, 1, 2, 'rgba(253,230,138,0.45)');
+    x += w + 2 + r() * 3;
   }
-  // 접이식 탁자와 명단
-  R(g, 100, 80, 40, 3, Wt); R(g, 103, 83, 2, 13, Wt); R(g, 134, 83, 2, 13, Wt);
-  R(g, 112, 77, 12, 3, Wt); R(g, 113, 78, 10, 1, B);
-  // 검사원(일반 실루엣)
-  R(g, 146, 58, 8, 8, Wt); R(g, 147, 59, 6, 6, B); R(g, 144, 66, 12, 22, Wt); R(g, 145, 67, 10, 20, B);
-  line(g, 144, 70, 136, 74, Wt); R(g, 133, 73, 4, 3, Wt);
 }
-function bgDorm(g) {
-  R(g, 0, 0, W, H, Wt);
-  dither(g, 0, 0, W, 78, 0.5, B);
-  // 바닥
-  R(g, 0, 78, W, 42, Wt); R(g, 0, 78, W, 1, B);
-  for (let i = 0; i < 9; i++) line(g, 96, 79, i * 24 - 20, 119, B);
-  for (let y = 86; y < 120; y += 9) R(g, 0, y, W, 1, B);
-  // 창(바깥)
-  box(g, 8, 18, 36, 34, B); stars(g, 0, 0, 1); { const r = rand(5); for (let i = 0; i < 10; i++) R(g, 10 + r() * 32, 20 + r() * 30, 1, 1, Wt); }
-  R(g, 25, 19, 2, 32, Wt); R(g, 9, 34, 34, 2, Wt); R(g, 6, 52, 40, 3, B);
+
+// 1. 외벽 처마 (eaves)
+function bgEaves(g, ts) {
+  R(g, 0, 0, W, H, C.sky);
+  starsC(g, 28, 48, 7);
+  skylineC(g, 82, 3, 0.05);
+  // 본관 외벽
+  R(g, 92, 16, 100, 80, C.wall);
+  R(g, 92, 16, 2, 80, C.wallHi);
+  // 처마 + 눈 + 고드름
+  R(g, 82, 9, 110, 8, C.roof);
+  R(g, 82, 9, 110, 3, C.snow);
+  for (let x = 88; x < 188; x += 9) R(g, x, 17, 1, 2 + ((x * 5) % 5), C.ice);
+  // 따뜻한 숙직실 창문
+  R(g, 112, 33, 48, 34, C.roof);
+  const glow = 0.85 + Math.sin(ts / 900) * 0.06;
+  R(g, 114, 35, 44, 30, `rgba(253, 230, 138, ${glow})`);
+  R(g, 135, 35, 2, 30, C.roof);
+  R(g, 114, 49, 44, 2, C.roof);
+  // 창틀 + 작은 무전기 + 빨간 불빛
+  R(g, 109, 67, 54, 3, C.snow);
+  R(g, 118, 62, 4, 5, C.roof);
+  R(g, 120, 59, 1, 3, C.roof);
+  R(g, 119, 64, 1, 1, (Math.floor(ts / 650) % 2 === 0) ? C.red : C.redDim);
+  // 배수관
+  R(g, 172, 17, 5, 79, C.roof);
+  R(g, 173, 17, 1, 79, C.metalHi);
+  for (let y = 28; y < 92; y += 16) R(g, 171, y, 7, 2, C.metal);
+  // 눈 덮인 바닥 + 창문 빛 반사
+  R(g, 0, 96, W, 24, C.snow);
+  R(g, 0, 96, W, 2, C.snowShade);
+  R(g, 104, 98, 56, 8, 'rgba(253, 230, 138, 0.28)');
+}
+
+// 2. 검문대 (checkpoint)
+function bgCheckpoint(g, ts) {
+  R(g, 0, 0, W, H, C.sky);
+  starsC(g, 24, 42, 21);
+  skylineC(g, 76, 13, 0.04);
+  // 대피소 건물 + 반쯤 내린 셔터
+  R(g, 98, 18, 94, 78, C.wall);
+  R(g, 98, 18, 94, 3, C.snow);
+  R(g, 112, 36, 62, 60, C.black);
+  R(g, 112, 36, 62, 28, C.metal);
+  for (let y = 39; y < 64; y += 3) R(g, 113, y, 60, 1, C.wallDark);
+  R(g, 108, 32, 70, 4, C.wallHi);
+  // 가로등 + 원뿔형 따뜻한 빛
+  R(g, 26, 20, 3, 76, C.metal);
+  R(g, 26, 20, 1, 76, C.metalHi);
+  R(g, 20, 18, 15, 3, C.metalHi);
+  R(g, 23, 21, 9, 2, C.warm);
+  const pulse = 0.14 + Math.sin(ts / 1100) * 0.02;
+  for (let y = 23; y < 96; y++) {
+    const w = (y - 22) * 0.42;
+    R(g, 27 - w, y, w * 2, 1, `rgba(253, 230, 138, ${pulse * (1 - (y - 23) / 110)})`);
+  }
+  // 바리케이드 2개
+  for (const bx of [46, 72]) {
+    R(g, bx, 78, 20, 8, C.snow);
+    for (let k = 2; k < 18; k += 6) R(g, bx + k, 78, 3, 8, bx === 46 ? C.stripeR : C.stripeY);
+    R(g, bx + 2, 86, 2, 10, C.metalHi);
+    R(g, bx + 16, 86, 2, 10, C.metalHi);
+  }
+  // 접이식 탁자 + 명단 종이
+  R(g, 106, 80, 44, 3, C.metalHi);
+  R(g, 109, 83, 2, 13, C.metal);
+  R(g, 145, 83, 2, 13, C.metal);
+  R(g, 118, 78, 12, 2, C.snow);
+  R(g, 134, 78, 8, 2, C.warm);
+  // 눈 덮인 바닥
+  R(g, 0, 96, W, 24, C.snow);
+  R(g, 0, 96, W, 2, C.snowShade);
+  R(g, 8, 98, 42, 9, 'rgba(253, 230, 138, 0.22)');
+}
+
+// 3. 숙직실 (dorm)
+function bgDorm(g, ts) {
+  // 어두운 실내 벽과 바닥
+  R(g, 0, 0, W, 82, '#161D2B');
+  R(g, 0, 82, W, 38, '#1E2738');
+  R(g, 0, 81, W, 2, '#0B101A');
+  // 천장 형광등(은은한 따뜻한 빛)
+  R(g, 74, 6, 44, 3, C.metal);
+  R(g, 78, 9, 36, 2, 'rgba(253, 230, 138, 0.75)');
+  R(g, 40, 11, 112, 70, 'rgba(253, 230, 138, 0.05)');
+  // 왼쪽 바깥 창문 (눈 내리는 밤하늘)
+  R(g, 10, 18, 36, 36, C.roof);
+  R(g, 12, 20, 32, 32, C.sky);
+  R(g, 12, 48, 32, 4, C.snow);
+  R(g, 27, 20, 2, 32, C.roof);
+  R(g, 12, 35, 32, 2, C.roof);
+  R(g, 8, 54, 40, 3, C.metalHi);
+  // 작은 난로
+  R(g, 16, 67, 14, 15, C.metal);
+  R(g, 18, 70, 10, 8, '#F59E0B');
+  R(g, 19, 71, 8, 6, C.warm);
   // 이층 침대
-  R(g, 52, 30, 2, 52, B); R(g, 98, 30, 2, 52, B);
-  for (const y of [44, 70]) { R(g, 52, y, 48, 5, B); R(g, 54, y + 1, 44, 3, Wt); R(g, 56, y - 4, 12, 4, B); R(g, 57, y - 3, 10, 2, Wt); }
-  // 수신기
-  box(g, 112, 22, 26, 16, Wt); for (let x = 115; x < 128; x += 3) R(g, x, 25, 2, 10, B); R(g, 131, 27, 3, 3, B);
-  line(g, 125, 22, 129, 12, B);
-  // 구호함
-  box(g, 110, 66, 26, 18, Wt); R(g, 110, 66, 26, 3, B); R(g, 121, 72, 4, 10, B); R(g, 118, 75, 10, 4, B);
-  // 옥상 계단 문
-  box(g, 150, 20, 30, 60, B); R(g, 152, 22, 26, 56, B); dither(g, 152, 22, 26, 56, 1, Wt); R(g, 172, 50, 3, 4, Wt);
-  R(g, 156, 14, 18, 5, B);
+  R(g, 56, 28, 2, 56, C.metalHi);
+  R(g, 104, 28, 2, 56, C.metalHi);
+  for (const by of [44, 68]) {
+    R(g, 56, by, 50, 4, C.metal);
+    R(g, 58, by - 3, 12, 3, C.snow); // 베개
+    R(g, 72, by - 2, 30, 3, '#64748B'); // 이불
+  }
+  // 벽 수신기 + 깜빡이는 LED
+  R(g, 116, 24, 24, 14, C.wallDark);
+  R(g, 117, 25, 22, 12, C.metal);
+  for (let x = 119; x < 130; x += 3) R(g, x, 27, 2, 8, C.roof);
+  R(g, 134, 28, 2, 2, (Math.floor(ts / 500) % 2 === 0) ? C.red : C.redDim);
+  line(g, 128, 24, 134, 15, C.metalHi);
+  // 탁자와 철제 구호함
+  R(g, 112, 68, 30, 3, C.metalHi);
+  R(g, 114, 71, 2, 12, C.metal);
+  R(g, 138, 71, 2, 12, C.metal);
+  R(g, 116, 56, 20, 12, C.snow);
+  R(g, 125, 59, 2, 6, C.stripeR);
+  R(g, 123, 61, 6, 2, C.stripeR);
+  // 오른쪽 옥상 계단 문
+  R(g, 152, 20, 30, 62, C.roof);
+  R(g, 154, 22, 26, 58, C.wallHi);
+  R(g, 174, 50, 3, 4, C.snow); // 걸쇠
+  R(g, 158, 12, 18, 5, 'rgba(94, 234, 212, 0.55)'); // 비상구 표시등
 }
+
+// 4. 비상계단과 옥상 (roof)
 function bgRoof(g) {
-  R(g, 0, 0, W, H, B);
-  stars(g, 90, 70, 33);
-  R(g, 150, 10, 9, 9, Wt); R(g, 152, 10, 7, 7, B); // 달
-  skyline(g, 82, 9, 0.2);
-  // 바닥
-  R(g, 0, 82, W, 38, Wt); dither(g, 0, 82, W, 38, 3, B); R(g, 0, 82, W, 1, Wt);
+  R(g, 0, 0, W, H, C.sky);
+  starsC(g, 42, 66, 33);
+  // 초승달
+  R(g, 34, 14, 9, 9, C.snow);
+  R(g, 36, 13, 8, 8, C.sky);
+  // 꺼진 도시 스카이라인
+  skylineC(g, 82, 9, 0.02);
   // 난간
-  R(g, 0, 70, 120, 2, Wt); for (let x = 2; x < 120; x += 10) R(g, x, 70, 2, 14, Wt);
+  R(g, 0, 68, 124, 2, C.metalHi);
+  R(g, 0, 67, 124, 1, C.snow);
+  for (let x = 4; x < 124; x += 10) R(g, x, 70, 2, 14, C.metal);
   // 꺾인 안테나
-  line(g, 40, 84, 44, 30, Wt); line(g, 44, 30, 60, 22, Wt); line(g, 36, 44, 52, 40, Wt); line(g, 38, 58, 50, 56, Wt);
+  line(g, 52, 82, 56, 30, C.metalHi);
+  line(g, 56, 30, 72, 23, C.metalHi);
+  line(g, 48, 42, 64, 38, C.metal);
+  line(g, 50, 54, 62, 52, C.metal);
   // 계단실과 옥상 문
-  R(g, 128, 34, 64, 54, Wt); R(g, 129, 35, 62, 52, B); dither(g, 129, 35, 62, 52, 1, Wt);
-  box(g, 146, 50, 24, 38, Wt); R(g, 148, 52, 20, 36, B); R(g, 164, 70, 2, 3, Wt);
-  R(g, 124, 32, 72, 3, Wt);
+  R(g, 126, 32, 66, 56, C.wall);
+  R(g, 124, 30, 70, 3, C.snow);
+  R(g, 144, 48, 24, 38, C.roof);
+  R(g, 146, 50, 20, 34, C.wallHi);
+  R(g, 162, 66, 2, 3, C.snow);
+  // 눈 쌓인 옥상 바닥
+  R(g, 0, 84, W, 36, C.snow);
+  R(g, 0, 84, W, 2, C.snowShade);
+  R(g, 18, 92, 32, 4, C.snowShade);
+  R(g, 88, 102, 40, 5, C.snowShade);
 }
-function bgMarket(g) {
-  R(g, 0, 0, W, H, B);
-  stars(g, 25, 24, 51);
-  // 양쪽 가게 줄
+
+// 5. 상점가 (market)
+function bgMarket(g, ts) {
+  R(g, 0, 0, W, H, C.skyDusk);
+  starsC(g, 16, 22, 51);
+  // 전선
+  line(g, 0, 12, 192, 16, '#1E293B');
+  line(g, 0, 18, 192, 14, '#1E293B');
+  // 가게 4채 (편의점·약국 등)
+  const signs = [C.ice, C.warm, C.teal, C.metalHi];
   for (let i = 0; i < 4; i++) {
     const x = i * 48;
-    R(g, x + 2, 18, 44, 70, Wt); R(g, x + 3, 19, 42, 68, B);
-    R(g, x + 6, 22, 36, 9, Wt); R(g, x + 8, 24, 32, 5, B); for (let k = 0; k < 5; k++) R(g, x + 10 + k * 6, 25, 3, 3, Wt); // 간판
-    const shut = 18 + ((i * 13) % 22); // 반쯤 내려간 셔터
-    R(g, x + 6, 34, 36, shut, Wt); for (let y = 36; y < 34 + shut; y += 3) R(g, x + 7, y, 34, 1, B);
-    dither(g, x + 6, 34 + shut, 36, 54 - shut - 4, 1, Wt);
+    R(g, x + 2, 22, 44, 74, C.wall);
+    R(g, x + 2, 21, 44, 2, C.snow);
+    // 간판
+    R(g, x + 6, 26, 36, 8, C.roof);
+    R(g, x + 8, 28, 32, 4, signs[i]);
+    // 반쯤 내려간 셔터
+    const shut = 20 + ((i * 11) % 18);
+    R(g, x + 6, 38, 36, 54, C.black);
+    R(g, x + 6, 38, 36, shut, C.metal);
+    for (let y = 40; y < 38 + shut; y += 3) R(g, x + 7, y, 34, 1, C.wallDark);
   }
-  // 넘어진 자판기
-  R(g, 112, 90, 34, 12, Wt); R(g, 113, 91, 32, 10, B); for (let x = 116; x < 140; x += 5) R(g, x, 93, 3, 5, Wt);
-  // 바닥과 유리 조각
-  R(g, 0, 100, W, 20, Wt); dither(g, 0, 100, W, 20, 2, B);
-  const r = rand(71); for (let i = 0; i < 30; i++) R(g, r() * W, 101 + r() * 18, 2, 1, Wt);
+  // 넘어진 자판기 (약하게 깜빡임)
+  R(g, 108, 86, 34, 14, C.wallHi);
+  R(g, 110, 88, 30, 10, C.roof);
+  const flick = (Math.floor(ts / 320) % 5 === 0) ? 0.35 : 0.75;
+  R(g, 113, 90, 22, 6, `rgba(94, 234, 212, ${flick})`);
+  // 바닥 눈 + 깨진 유리 조각
+  R(g, 0, 96, W, 24, '#1E293B');
+  R(g, 0, 96, W, 3, C.snow);
+  R(g, 10, 102, 46, 6, C.snow);
+  R(g, 134, 105, 50, 7, C.snow);
+  const r = rand(71);
+  for (let i = 0; i < 18; i++) R(g, r() * W, 100 + r() * 16, 2, 1, C.ice);
 }
+
+// 6. 급수소 (pump)
 function bgPump(g) {
-  R(g, 0, 0, W, H, B);
-  stars(g, 60, 50, 91);
-  skyline(g, 70, 17, 0.06);
-  // 나무 실루엣
-  for (const [x, h] of [[18, 40], [44, 30], [160, 44]]) { R(g, x - 1, 96 - h, 3, h, Wt); for (let k = 0; k < 18; k++) R(g, x - 9 + ((k * 7) % 19), 96 - h - 6 + ((k * 5) % 12), 2, 2, Wt); }
-  // 펌프
-  R(g, 94, 58, 10, 40, Wt); R(g, 95, 59, 8, 38, B); dither(g, 95, 59, 8, 38, 1, Wt);
-  R(g, 88, 56, 22, 5, Wt); line(g, 104, 56, 124, 44, Wt); line(g, 104, 57, 124, 45, Wt); R(g, 122, 42, 5, 5, Wt);
-  R(g, 84, 66, 12, 3, Wt); R(g, 84, 69, 3, 5, Wt); // 꼭지
-  R(g, 78, 92, 20, 6, Wt); R(g, 79, 93, 18, 4, B); // 받침대
-  // 땅과 웅덩이
-  R(g, 0, 96, W, 24, Wt); dither(g, 0, 96, W, 24, 2, B);
-  R(g, 70, 100, 40, 5, B); for (let x = 72; x < 108; x += 4) R(g, x, 102, 2, 1, Wt);
+  R(g, 0, 0, W, H, C.sky);
+  starsC(g, 36, 46, 91);
+  skylineC(g, 74, 17, 0.04);
+  // 공원 울타리
+  R(g, 0, 76, W, 2, C.metal);
+  for (let x = 4; x < W; x += 8) R(g, x, 76, 1, 18, C.metal);
+  // 앙상한 겨울 나무 실루엣
+  for (const [tx, th] of [[20, 42], [46, 30], [164, 46]]) {
+    R(g, tx, 94 - th, 3, th, C.roof);
+    line(g, tx + 1, 94 - th + 12, tx - 10, 94 - th + 2, C.roof);
+    line(g, tx + 2, 94 - th + 8, tx + 12, 94 - th - 2, C.roof);
+    line(g, tx + 1, 94 - th + 11, tx - 10, 94 - th + 1, C.snowShade);
+  }
+  // 작은 공원 가로등
+  R(g, 34, 34, 2, 60, C.metalHi);
+  R(g, 32, 31, 6, 4, C.snow);
+  R(g, 20, 35, 30, 58, 'rgba(165, 216, 255, 0.08)');
+  // 비상 급수 펌프
+  R(g, 92, 60, 10, 34, C.metal);
+  R(g, 94, 60, 2, 34, C.metalHi);
+  R(g, 88, 57, 18, 4, C.metalHi);
+  R(g, 88, 56, 18, 1, C.snow);
+  line(g, 104, 60, 122, 48, C.metalHi);
+  line(g, 104, 61, 122, 49, C.metal);
+  R(g, 82, 68, 10, 3, C.metalHi);
+  R(g, 82, 71, 3, 5, C.metal);
+  // 콘크리트 받침대와 얼어붙은 물웅덩이
+  R(g, 74, 92, 44, 6, C.wallHi);
+  R(g, 0, 96, W, 24, C.snow);
+  R(g, 0, 96, W, 2, C.snowShade);
+  R(g, 72, 100, 46, 7, '#1E3A5F');
+  R(g, 78, 102, 16, 1, C.ice);
+  R(g, 98, 104, 12, 1, C.snow);
 }
+
 const BG = { eaves: bgEaves, checkpoint: bgCheckpoint, dorm: bgDorm, roof: bgRoof, market: bgMarket, pump: bgPump };
 
-export function background(zone) {
-  if (cache[zone]) return cache[zone];
-  const [c, g] = makeCtx();
-  const src = BG_IMAGES[zone];
-  if (src) {
-    const img = new Image();
-    img.onload = () => { g.drawImage(img, 0, 0, W, H); };
-    img.src = src;
-    BG[zone](g);
-  } else BG[zone](g);
-  cache[zone] = c;
+export function background(zone, now = 0) {
+  if (!cache[zone]) cache[zone] = makeCtx();
+  const [c, g] = cache[zone];
+  g.imageSmoothingEnabled = false;
+  BG[zone](g, now);
+  const img = BG_IMAGES[zone] && imgCache[zone];
+  if (img && img.complete && img.naturalWidth) g.drawImage(img, 0, 0, W, H);
+  else if (BG_IMAGES[zone] && !imgCache[zone]) { const im = new Image(); im.src = BG_IMAGES[zone]; imgCache[zone] = im; }
   return c;
 }
+const imgCache = {};
 
 // 일반 실루엣(캐릭터 도트는 사용자가 교체)
 function figure(g, x, y, s = 1, posture = 'stand', inv = false) {
@@ -200,7 +354,7 @@ function zombie(g, x, y, s, shake) {
 export function draw(canvas, v, now) {
   const g = canvas.getContext('2d'); g.imageSmoothingEnabled = false;
   const zone = v.zone.id;
-  g.drawImage(background(zone), 0, 0);
+  g.drawImage(background(zone, now), 0, 0);
   const p = v.partner;
   const groundY = zone === 'dorm' ? 98 : 104;
   const tags = [];
@@ -210,8 +364,8 @@ export function draw(canvas, v, now) {
     figure(g, px, py, 1.4, posture);
     tags.push({ x: px, y: py - (posture === 'lie' ? 14 : 44), role: p.role, typing: p.typing });
   } else if (p.rel === 'glass' && p.zone) {
-    if (zone === 'eaves') { figure(g, 130, 66, 0.7, p.asleep ? 'lie' : 'stand', true); tags.push({ x: 130, y: 36, role: p.role, typing: p.typing, small: true }); }
-    if (zone === 'dorm') { figure(g, 26, 52, 0.7, 'stand'); tags.push({ x: 26, y: 26, role: p.role, typing: p.typing, small: true }); }
+    if (zone === 'eaves') { figure(g, 146, 64, 0.7, p.asleep ? 'lie' : 'stand', true); tags.push({ x: 146, y: 34, role: p.role, typing: p.typing, small: true }); }
+    if (zone === 'dorm') { figure(g, 20, 48, 0.6, 'stand'); tags.push({ x: 20, y: 22, role: p.role, typing: p.typing, small: true }); }
   }
   const z = v.zone.zombie;
   if (z) {
