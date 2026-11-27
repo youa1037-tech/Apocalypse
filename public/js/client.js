@@ -1,4 +1,4 @@
-import { createGame, applyCommand, advance, viewFor, ITEM_USE, CFG, archiveOf, revive } from './engine.js';
+import { createGame, applyCommand, advance, viewFor, ITEM_USE, CFG, archiveOf, revive, msPerMin } from './engine.js';
 import { SCENE_TEXT, sceneLine, storyLines, secretLine, ENDING_TEXT, endingKey, endingText, PROLOGUE, ROUTE_TEXT, MARK_TEXT, FEAT_TEXT, STATUS_TEXT, STATUS_DESC, AVATARS, TACHIE, BUILD_TEXT, QUESTIONS, OFFER_TEXT, zlabel, NAMES, ZONE_TEXT, ITEM_TEXT, TASK_TEXT, SIGNAL_TEXT, PARTNER_TEXT, RESULT_TEXT, RESULT_CARD, fmt, j, iname, zname } from './text.js';
 import { draw, icon, background, W, H } from './scene.js';
 import { TutorialHost, STEPS } from './tutorial.js';
@@ -83,7 +83,7 @@ const secs = (min) => Math.max(0, Math.ceil(min * MS_NOW / 1000));
 // ── 호스트: 로컬(한 기기 두 화면) ───────────────────────────────
 class LocalHost {
   constructor() {
-    this.key = 'saebyeok-local-v8';
+    this.key = 'saebyeok-local-v9';
     let s = null;
     try { s = JSON.parse(localStorage.getItem(this.key) || 'null'); } catch { s = null; }
     this.s = s && s.v === 1 ? revive(s) : createGame((Math.random() * 1e9) | 0, Date.now(), { dev: true });
@@ -189,7 +189,7 @@ function goalsOf(v, ui) {
       mine,
       { t: '숙직실에 들어가기', d: v.checkpointOpen ? `검문대에서 검사를 받으면 들어갈 수 있다 · 마감 ${clock(v.closeAt || 150)}` : '검문이 닫혔다 — 안에서 옥상 문을 열어 주거나 열쇠로', done: inside || m.passed },
       doorItem, radioItem,
-      { t: '이송 명단에 서명', d: '3일째 05:00 이송 차량에 필요 · 되돌릴 수 없다', done: m.signed, opt: true },
+      { t: '이송 명단에 서명', d: '이송 차량에 필요(3일째 첫 차 · 5일째 마지막 차) · 되돌릴 수 없다', done: m.signed, opt: true },
       { t: '불침번 정하기', d: '01:00 소등 후 한 명은 쉬고, 한 명은 망보기. 안전하면 아침까지 넘길 수 있다', done: lights && m.task && (m.task.kind === 'watch' || m.task.kind === 'rest') },
       { t: '아침 06:00까지 버티기', d: '아침마다 물 1 · 식량 1이 든다', done: false },
     ];
@@ -213,7 +213,7 @@ function goalsOf(v, ui) {
     { t: '18:00 전에 숙직실로', d: '검문은 17:00에 닫힌다. 그 뒤엔 옥상 문으로', done: inside && cm >= 17 * 60 },
     doorItem, radioItem,
   ];
-  if (v.t < v.busAt) list.push({ t: '3일째 05:00 이송 차량', d: '검문대 앞 · 이송증 필요 · 재검사에서 상처가 보이면 못 탄다', done: m.boarded, opt: true });
+  if (v.t < v.busAt) list.push({ t: `${v.busLast ? '5일째' : '3일째'} 05:00 ${v.busLast ? '마지막' : '첫'} 이송 차량`, d: `검문대 앞 · 이송증 필요 · ${v.busSeats === 1 ? '자리는 하나뿐' : '둘 다 탈 수 있다'} · 재검사가 있다`, done: m.boarded, opt: true });
   list.push({ t: `버틴 날: ${v.day}일째`, d: '한 사람이라도 잃으면 끝난다' });
   let main;
   if (v.busHere) main = '이송 차량 — 탈지, 보낼지';
@@ -381,7 +381,7 @@ const ui = {
       }
     }
     if (!v) return;
-    MS_NOW = (v.isDay ? CFG.DAY_MS_PER_MIN : CFG.MS_PER_MIN) / (v.speed || 1);
+    MS_NOW = msPerMin(v.t) / (v.speed || 1);
     this.renderTabs(v);
     $('#bDev').hidden = !(v.dev && !this.host.local);
     this.renderBand(v);
@@ -820,8 +820,8 @@ const ui = {
       else if (key === 'replayLine' || key === 'bcastTail' || /^nSos/.test(key)) snd = snd || 'radio';
       else if (key.startsWith('knock.')) snd = snd || 'knock';
       else if (key.startsWith('lockDone.') || key.startsWith('unlockDone.')) snd = snd || 'latch';
-      else if (key === 'paBusHere') snd = 'engineIn';
-      else if (key === 'paBusGone' || key.startsWith('board.')) snd = 'engineOut';
+      else if (key === 'paBusHere' || key === 'paBusHere1') snd = 'engineIn';
+      else if (key === 'paBusGone' || key === 'paBusGone1' || key.startsWith('board.')) snd = 'engineOut';
       if (key === 'bite.self' || key.startsWith('turn.')) flash = true;
     }
     this.cueLast[k] = top;
@@ -923,7 +923,7 @@ const ui = {
     const g = goalsOf(v, this);
     const hl = this.hintNow && this.hintNow.text ? `<p class="hintline">${esc(this.hintNow.text)}</p>` : '';
     const row = (it) => `<div class="gl${it.done ? ' done' : ''}"><span class="gx">${it.done ? '✓' : it.opt ? '·' : '□'}</span><div><b>${esc(it.t)}</b>${it.d ? `<div class="dim">${esc(it.d)}</div>` : ''}</div></div>`;
-    const led = busWindow(v) || v.t < v.busAt ? `<div class="sh">3일째 05:00 이송 차량 — 탈까, 보낼까</div>${ledgerHtml(v)}` : '';
+    const led = busWindow(v) || v.t < v.busAt ? `<div class="sh">${v.busLast ? '5일째' : '3일째'} 05:00 ${v.busLast ? '마지막' : '첫'} 이송 차량${v.busSeats === 1 ? ' (한 자리)' : ''} — 탈까, 보낼까</div>${ledgerHtml(v)}` : '';
     return `${hl}${led}<div class="list gls">${g.list.map(row).join('')}</div>
       ${g.bite ? `<div class="sh">물렸다면</div><div class="list gls">${g.bite.map(row).join('')}</div>` : ''}
       <div class="sh">조작</div>
@@ -1071,7 +1071,7 @@ const ui = {
     const modes = { random: '무작위', prog: '진행성 고정', non: '비진행성 고정', none: '물림 없음' };
     return `<div class="sh">속도</div><div class="row wrap">${[1, 4, 10].map((x) => `<button class="btn sm${v.speed === x ? ' inv' : ''}" data-dev='{"op":"speed","v":${x}}'>×${x}</button>`).join('')}<button class="btn sm" data-dev='{"op":"pause"}'>${v.paused ? '재개' : '정지'}</button></div>
       <div class="sh">물림 결과</div><div class="row wrap">${Object.entries(modes).map(([k, t]) => `<button class="btn sm${v.biteMode === k ? ' inv' : ''}" data-dev='{"op":"biteMode","v":"${k}"}'>${t}</button>`).join('')}</div>
-      <div class="sh">시간 이동</div><div class="row wrap">${[[145, '1일 00:25'], [205, '1일 01:25'], [470, '2일 05:50'], [840, '2일 12:00'], [1060, '2일 17:40'], [1850, '3일 04:50']].map(([t, l]) => `<button class="btn sm" data-dev='{"op":"jump","t":${t}}'>${l}</button>`).join('')}</div>
+      <div class="sh">시간 이동</div><div class="row wrap">${[[145, '1일 00:25'], [470, '2일 05:50'], [1060, '2일 17:40'], [1850, '3일 04:50'], [3290, '4일 04:50'], [4500, '4일 21:00'], [4730, '5일 04:50']].map(([t, l]) => `<button class="btn sm" data-dev='{"op":"jump","t":${t}}'>${l}</button>`).join('')}</div>
       <div class="sh">사건</div><div class="row wrap"><button class="btn sm" data-dev='{"op":"spawn","zone":"${v.me.zone}"}'>여기에 좀비</button><button class="btn sm" data-dev='{"op":"end"}'>밤 끝내기</button>${this.host.local ? '<button class="btn sm" data-act="restart">새 판</button>' : ''}</div>
       <p class="dim">새벽 판정 미리보기(${esc(NAMES[v.role])}): ${esc(RESULT_CARD.dawn[v.devInfo ? v.devInfo.dawn : 'normal'])} · 열쇠 위치: ${esc(zname(v.devInfo ? v.devInfo.keyAt : ''))}</p>`;
   },
@@ -1127,7 +1127,7 @@ const ui = {
         ${warn.length ? `<p class="pt" style="font-size:14px">${warn.map((l) => `<span>· ${esc(l)}</span>`).join('')}</p>` : ''}
         <div class="sh">비축</div><p style="margin:0">${stock}</p>${(mo.made || []).length ? `<p class="dim" style="margin:4px 0 0">${mo.made.map((x) => x === 'water' ? '정수 통: 물 1이 생겼다' : x === 'charge' ? '충전기: 무전기가 꽉 찼다' : '벽 지도: 둘의 표시를 합쳤다').join(' · ')}</p>` : ''}
         ${mo.day === 2 ? `<div class="sh">내일 05:00 이송 차량</div>${ledgerHtml(v)}` : ''}
-        <div class="sh">오늘</div><p class="dim" style="margin:0">검문 07:00–17:00 (들어올 때 다시 검사) · 해 질 녘 18:00 · 상점가는 검문대 남쪽<br>${mo.day === 2 ? '이송 차량은 내일(3일째) 05:00, 검문대 앞.' : '이송 차량은 떠났다. 이제 버티는 날을 센다.'}</p>
+        <div class="sh">오늘</div><p class="dim" style="margin:0">검문 07:00–17:00 (들어올 때 다시 검사) · 해 질 녘 18:00 · 상점가는 검문대 남쪽<br>${mo.day < 3 ? '첫 이송 차량은 내일(3일째) 05:00, 검문대 앞 — 자리는 하나.' : mo.day < 5 ? '마지막 이송 차량은 5일째 05:00, 검문대 앞.' : '마지막 차는 떠났다.'}</p>
         <div class="sh">생존일지 — 어제</div>
         ${prevLines}
         ${(mo.feats || []).length ? `<div class="feats">${mo.feats.map((f) => `<div>· ${esc(featText(f))}</div>`).join('')}</div>` : ''}

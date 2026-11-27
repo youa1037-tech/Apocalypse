@@ -7,8 +7,15 @@ export const other = (r) => (r === 'ren' ? 'akechi' : 'ren');
 
 // ── 조정용 숫자 ─────────────────────────────────────────────
 export const CFG = {
-  MS_PER_MIN: 6000,        // 밤: 게임 1분 = 실제 6초
-  DAY_MS_PER_MIN: 2500,    // 낮(06~18시): 게임 1분 = 실제 2.5초
+  MS_PER_MIN: 400,         // 밤(18~06시): 게임 1분 = 실제 0.4초 → 밤 12시간 약 5분
+  DAY_MS_PER_MIN: 500,     // 낮(06~18시): 게임 1분 = 실제 0.5초 → 낮 12시간 6분
+  OPENING_MS: 3000,        // 첫날 밤 22:00~00:30(여는 장면): 게임 1분 = 실제 3초
+  OPENING_END: 150,        //   여는 장면이 끝나는 시각(00:30 검문 마감)
+  // 반응해야 하는 시간은 시계 속도와 상관없이 실제 시간으로 잰다(ms)
+  APPROACH_MS: 12000, WARN_MS: 6000, STUN_MS: 12000, LUNGE_AGAIN_MS: 3000,
+  OFFER_MS: 20000, SCENE_MS: 90000, CROWD_MS: 10000, KNOCK_MS: 60000,
+  DAYS: 5,                 // 마지막 이송: 5일째 05:00
+  BUSES: [{ day: 3, seats: 1 }, { day: 5, seats: 2 }], // 첫 차는 한 자리, 마지막 차는 둘
   CAP: 5,                  // 가방 칸
   ROUTE_DUR: { market: { main: 20, alley: 40 }, pump: { main: 25, alley: 45 } }, // 검문대 ↔ 바깥: 큰길 / 뒷골목(게임 분)
   UNDER_DUR: { market: 30, pump: 35 }, // 숙직실 보일러실 계단 ↔ 지하 구간 ↔ 바깥(검문대를 거치지 않는다)
@@ -20,7 +27,7 @@ export const CFG = {
   SUPPRESS_FOR: 48 * 60,   // 억제제 지속(게임 분)
   NOISE_SPAWN_NIGHT: 3.5,  // 밤에는 소음 조금만 쌓여도 몰려온다
   TURN_AFTER: 120,         // 이동 제한 뒤 억제하지 못하면 이만큼 지나 그 자리에서 전환
-  LAST_SCENE: 30,          // 전환 뒤 살아남은 쪽의 마지막 장면(게임 분)
+  LAST_SCENE: 30, LAST_SCENE_MS: 120000, // 전환 뒤 살아남은 쪽의 마지막 장면(실제 2분)
   BLEED_RATE: 0.25,        // 출혈: 분당 체력 감소
   ORIGINS: 8,              // 좀비 출신 종류 수(이름은 text.js)
   QUESTIONS: 14,           // 말 걸 거리 수(문장은 text.js)
@@ -72,7 +79,7 @@ export const CFG = {
     extinguisher: { push: true,  stun: 1.5,  dur: 3, noise: 1 },
   },
   WEAPON_DAILY: ['pipe', 'bat', 'knife', 'umbrella', 'extinguisher'], // 날마다 상점가·급수소 어딘가에 하나
-  SYMPTOM_AFTER: 60, RESTRICT_AFTER: 60,  // 진행성: 물린 뒤 60분 첫 증상, 다시 60분 뒤 이동 제한
+  SYMPTOM_AFTER: 360, RESTRICT_AFTER: 720,  // 진행성: 물린 뒤 6시간 첫 증상, 다시 12시간 뒤 이동 제한(그다음 새벽에 전환 위기)
   NOISE_SPAWN: 5, MAX_ZOMBIES: 2,
 };
 
@@ -93,6 +100,10 @@ export const clockOf = (t) => (T0 + t) % 1440;                  // 그날 0시�
 export const dayOf = (t) => Math.floor((T0 + t) / 1440) + 1;    // 며칠째
 export const tAt = (day, h) => (day - 1) * 1440 + h * 60 - T0;  // day일째 h시의 t
 export const isDay = (t) => { const h = clockOf(t) / 60; return h >= 6 && h < 18; };
+// 지금 게임 1분이 실제 몇 ms인가
+export const msPerMin = (t) => (t < CFG.OPENING_END ? CFG.OPENING_MS : isDay(t) ? CFG.DAY_MS_PER_MIN : CFG.MS_PER_MIN);
+// 실제 ms를 지금 속도의 게임 분으로
+const rt = (s, ms) => (ms * (s.speed || 1)) / msPerMin(s.t);
 const SIZE = { jug: 2, note: 0, result: 0, pass: 0, key: 0, extinguisher: 2 };
 const FAR = new Set(['checkpoint-market', 'checkpoint-pump']);
 export const isFar = (a, b) => FAR.has([a, b].sort().join('-'));
@@ -194,6 +205,7 @@ export const PERCEIVE = {
   scout:        P({ self: 'self', same: 'see' }),
   crowd:        P({ self: 'self', same: 'see', near: 'hear', radio: 'radio' }),
   board:        P({ self: 'self', same: 'see' }),
+  busFull:      P({ self: 'self', same: 'see' }),
   boardFail:    P({ self: 'self', same: 'see' }),
   death:        P({ self: 'self', same: 'see', glass: 'see', door: 'hear', near: 'hear', radio: 'radio' }),
   listen:       P({ self: 'self', same: 'see' }),
@@ -290,13 +302,16 @@ export function createGame(seed, now, opts = {}) {
   at(between(s, CFG.ZOMBIE2), 'zombie2');
   at(between(s, [tAt(2, 2), tAt(2, 4)]), 'nightEvent');
   at(tAt(2, 6), 'morning');
-  at(tAt(3, 4.5), 'pa', { key: 'paBus' });
-  at(tAt(3, 5), 'bus');
-  at(tAt(3, 5.25), 'busGone');
+  CFG.BUSES.forEach((b, i) => {
+    at(tAt(b.day, 4.5), 'pa', { key: i === 0 ? 'paBus1' : 'paBus2' });
+    at(tAt(b.day, 5), 'bus', { n: i, seats: b.seats });
+    at(tAt(b.day, 5.25), 'busGone', { n: i });
+  });
   return s;
 }
 
 // 둘이 해낸 일 — 일지와 결산, 탈출 결정에 남는다
+export function nextBusAt(s) { for (const b of CFG.BUSES) if (s.t < tAt(b.day, 5.25)) return tAt(b.day, 5); return tAt(CFG.BUSES[CFG.BUSES.length - 1].day, 5); }
 function feat(s, key, a = {}) { s.feats.push({ t: Math.round(s.t), day: dayOf(s.t), key, a }); }
 function addMark(p, m) {
   if (p.marks.some((x) => x.zone === m.zone && x.tag === m.tag && x.item === m.item && x.text === m.text)) return;
@@ -462,7 +477,7 @@ export function advance(s, now) {
   let ms = Math.min(now - s.lastReal, 10 * 60 * 1000);
   s.lastReal = now;
   while (ms > 1e-6 && s.phase === 'play') {
-    const rate = (isDay(s.t) ? CFG.DAY_MS_PER_MIN : CFG.MS_PER_MIN) / s.speed; // 실제 ms / 게임 분
+    const rate = msPerMin(s.t) / s.speed; // 실제 ms / 게임 분
     const d = Math.min(CFG.STEP, ms / rate);
     step(s, d);
     ms -= d * rate;
@@ -482,7 +497,7 @@ function step(s, d) {
     if (!p.asleep && (rel === 'same' || rel === 'glass')) p.lastSeen = { zone: o.zone, t: s.t };
   }
   if (!skipOk(s)) for (const r of ROLES) s.players[r].skipVote = false;
-  if (s.offer && s.t - s.offer.t > 5) s.offer = null;
+  if (s.offer && s.t > (s.offer.until ?? s.offer.t + 5)) s.offer = null;
   sceneTick(s);
   for (const r of ROLES) { const p = s.players[r]; if (p.crowdAsk && s.t >= p.crowdAsk.until) crowdResolve(s, r, 'run'); }
   for (const r of ROLES) { const p = s.players[r]; if (p.lean && !(p.task && p.task.kind === 'rest')) p.lean = null; }
@@ -560,6 +575,8 @@ function fire(s, ev) {
       break;
     case 'morning': morning(s); break;
     case 'gateOpen':
+      addItem(s, 'food', { zone: 'market' }, { hidden: { ren: 1, akechi: 1 } });
+      addItem(s, 'water', { zone: rng(s) < 0.5 ? 'market' : 'checkpoint' }, { hidden: { ren: 1, akechi: 1 } });
       { const pool = CFG.WEAPON_DAILY, kind = pool[Math.floor(rng(s) * pool.length)]; addItem(s, kind, { zone: rng(s) < 0.6 ? 'market' : 'pump' }, { hidden: { ren: 1, akechi: 1 }, data: { dur: CFG.WEAPONS[kind].dur } }); }
       s.checkpointOpen = true; s.regOpen = true;
       for (const r of ROLES) { s.players[r].passed = false; log(s, r, 'pa', 'paGateOpen', {}); }
@@ -612,9 +629,9 @@ function fire(s, ev) {
       break;
     }
     case 'bus':
-      s.busHere = true;
+      s.busHere = true; s.busN = ev.data.n || 0; s.busSeats = ev.data.seats || 2;
       for (const r of ROLES) {
-        log(s, r, 'pa', 'paBusHere', {});
+        log(s, r, 'pa', s.busSeats === 1 ? 'paBusHere1' : 'paBusHere', {});
         const p = s.players[r];
         if (p.dead) continue;
         if (r === 'akechi' && p.listened) log(s, r, 'self', 'special.akechi.bus', {});
@@ -626,7 +643,9 @@ function fire(s, ev) {
       s.flags = s.flags || {}; s.flags.busZones = { ren: s.players.ren.zone, akechi: s.players.akechi.zone };
       const gone = ROLES.filter((r) => s.players[r].boarded);
       const st = stockCounts(s);
+      const last = (ev.data.n || 0) >= CFG.BUSES.length - 1;
       if (gone.length) { feat(s, 'boarded', { who: gone, water: st.water, food: st.food }); endRun(s, 'bus'); }
+      else if (!last) { s.flags.firstBusSent = true; for (const r of ROLES) log(s, r, 'pa', 'paBusGone1', {}); }
       else { feat(s, 'sentBus', { water: st.water, food: st.food }); for (const r of ROLES) log(s, r, 'pa', 'paBusGone', {}); if (ROLES.some((r) => !s.players[r].dead)) { s.flags = s.flags || {}; s.flags.sentBus = true; for (const r of ROLES) log(s, r, 'self', 'sentBus.self', {}); } }
       break;
     }
@@ -736,7 +755,7 @@ function stepPlayer(s, r, d) {
     if (HELPABLE.has(p.task.kind) && o.zone === p.zone && o.task && o.task.kind === 'help' && o.task.data.of === r) rate *= CFG.HELP_RATE;
     if (p.task.kind === 'move' && p.task.data.route === 'main' && p.task.data.to === 'checkpoint' && s.routes.main === 'crowd' && !p.task.data.crowdAsked && p.task.prog >= p.task.dur * 0.5) {
       p.task.data.crowdAsked = true; p.task.paused = true;
-      p.crowdAsk = { until: s.t + 4 };
+      p.crowdAsk = { until: s.t + rt(s, CFG.CROWD_MS) };
       log(s, r, 'self', 'crowdBehind.self', {});
       if (radioLink(s)) log(s, o.role, 'radio', 'crowdBehind.radio', { who: r });
       return;
@@ -771,10 +790,10 @@ function stepZombie(s, z) {
     if (z.scratch >= 4) { z.scratch = 0; emit(s, 'doorScratch', null, 'dorm', {}); }
   }
   if (!here.length) { if (z.st !== 'stun') z.st = 'idle'; return; }
-  if (z.st === 'idle') { z.st = 'approach'; z.until = s.t + CFG.APPROACH; return; }
+  if (z.st === 'idle') { z.st = 'approach'; z.until = s.t + rt(s, CFG.APPROACH_MS); return; }
   if (s.t < z.until) return;
   if (z.st === 'approach') {
-    z.st = 'warn'; z.until = s.t + CFG.WARN;
+    z.st = 'warn'; z.until = s.t + rt(s, CFG.WARN_MS);
     for (const r of here) {
       const p = s.players[r];
       if (p.asleep) wake(s, r);
@@ -784,10 +803,10 @@ function stepZombie(s, z) {
     }
   } else if (z.st === 'warn') {
     resolveLunge(s, z, here);
-    z.st = 'approach'; z.until = s.t + CFG.APPROACH;
+    z.st = 'approach'; z.until = s.t + rt(s, CFG.APPROACH_MS);
     for (const r of ROLES) { const p = s.players[r]; if (p.autoGuard && p.task) p.task.paused = false; p.autoGuard = false; if (p.zone === z.zone) p.stance = null; }
   } else if (z.st === 'stun') {
-    z.st = 'approach'; z.until = s.t + CFG.APPROACH;
+    z.st = 'approach'; z.until = s.t + rt(s, CFG.APPROACH_MS);
   }
 }
 
@@ -894,13 +913,13 @@ function complete(s, r, t) {
           if (p.bite) s.flags['bypass_' + r] = true;
         } else {
           const lit = hasKind(s, r, 'light');
-          if (rng(s) < CFG.UNDER_DARK[lit ? 1 : 0]) { emit(s, 'underDark', r, to, { lit }); spawnZombie(s, to, { force: true }); const zz = zombieIn(s, to); if (zz) { zz.st = 'approach'; zz.until = s.t + 0.3; } }
+          if (rng(s) < CFG.UNDER_DARK[lit ? 1 : 0]) { emit(s, 'underDark', r, to, { lit }); spawnZombie(s, to, { force: true }); const zz = zombieIn(s, to); if (zz) { zz.st = 'approach'; zz.until = s.t + rt(s, 2000); } }
           const ck = 'underCache_' + dayOf(s.t) + '_' + to;
           if (!s.flags[ck]) { s.flags[ck] = true; const pool = ['suppressant', 'kit', 'battery', 'bat']; const kind = pool[Math.floor(rng(s) * pool.length)]; addItem(s, kind, { zone: to }, CFG.WEAPONS[kind] ? { data: { dur: CFG.WEAPONS[kind].dur } } : {}); log(s, r, 'self', 'underCache.self', { item: kind }); }
         }
       } else if (t.data.route) {
         if (s.routes[t.data.route] === 'crowd') {
-          emit(s, 'crowd', r, to, { route: t.data.route }); s.noise[to] = Math.max(s.noise[to], 3); spawnZombie(s, to); const zz = zombieIn(s, to); if (zz) { zz.st = 'approach'; zz.until = s.t + 0.5; }
+          emit(s, 'crowd', r, to, { route: t.data.route }); s.noise[to] = Math.max(s.noise[to], 3); spawnZombie(s, to); const zz = zombieIn(s, to); if (zz) { zz.st = 'approach'; zz.until = s.t + rt(s, CFG.LUNGE_AGAIN_MS); }
           if (to === 'checkpoint' && t.data.route === 'main' && rng(s) < CFG.CROWD_FOLLOW) {
             s.flags = s.flags || {}; s.flags.crowdLed = { who: r, day: dayOf(s.t) };
             spawnZombie(s, 'eaves', { force: true }); addNoise(s, 'dorm', 1);
@@ -1031,10 +1050,10 @@ function complete(s, r, t) {
         // 밀렸다: 붙잡힌 채 반격당하고, 좀비는 곧 다시 달려든다
         emit(s, 'fightLose', r, p.zone, { zo: z.zo, of: z.of, item: wp ? wp.kind : null });
         wound(s, p, z, Math.max(0.05, CFG.FIGHT_BITE - (W ? W.keep : 0)));
-        z.st = 'approach'; z.until = s.t + 0.5;
+        z.st = 'approach'; z.until = s.t + rt(s, CFG.LUNGE_AGAIN_MS);
       } else if (z) {
         z.hp -= 1;
-        if (z.hp > 0) { emit(s, 'zHit', r, p.zone, { zo: z.zo, of: z.of, item: wp ? wp.kind : null }); z.st = 'stun'; z.until = s.t + CFG.STUN; }
+        if (z.hp > 0) { emit(s, 'zHit', r, p.zone, { zo: z.zo, of: z.of, item: wp ? wp.kind : null }); z.st = 'stun'; z.until = s.t + rt(s, CFG.STUN_MS); }
         if (z.hp <= 0) {
           delete s.zombies[z.id];
           emit(s, 'zDown', r, p.zone, { zo: z.zo, of: z.of, item: wp ? wp.kind : null });
@@ -1051,7 +1070,7 @@ function complete(s, r, t) {
       const pw = weaponOf(s, r, 'push');
       if (z && !pw && p.stamina < 30 && rng(s) < CFG.PUSH_FAIL) { emit(s, 'pushFail', r, p.zone, { zo: z.zo, of: z.of }); break; }
       if (z) {
-        z.st = 'stun'; z.until = s.t + CFG.STUN + (pw ? CFG.WEAPONS[pw.kind].stun : 0);
+        z.st = 'stun'; z.until = s.t + rt(s, CFG.STUN_MS + (pw ? CFG.WEAPONS[pw.kind].stun * 6000 : 0));
         if (pw) { addNoise(s, p.zone, CFG.WEAPONS[pw.kind].noise); emit(s, 'spray', r, p.zone, { zo: z.zo, of: z.of }); wear(s, r, pw); }
         emit(s, 'push', r, p.zone, { zo: z.zo, of: z.of });
         for (const q of ROLES) { const pp = s.players[q]; if (pp.zone === p.zone) { pp.stance = null; if (pp.autoGuard && pp.task) pp.task.paused = false; pp.autoGuard = false; } }
@@ -1115,6 +1134,7 @@ function complete(s, r, t) {
     case 'board':
       if (!s.busHere) return;
       if (p.bite) { s.flags = s.flags || {}; s.flags['boardFail_' + r] = true; emit(s, 'boardFail', r, p.zone, {}); break; }
+      if (ROLES.filter((q) => s.players[q].boarded).length >= (s.busSeats || 2)) { emit(s, 'busFull', r, p.zone, {}); break; }
       p.boarded = true; p.task = null;
       emit(s, 'board', r, p.zone, {});
       break;
@@ -1356,7 +1376,7 @@ export function applyCommand(s, r, cmd, now) {
       if (cmd.kind === 'care' && !hasKind(s, r, 'bandage')) return ERR('needBandage');
       if (cmd.kind === 'meal' && ![...bagOf(s, r), ...(p.zone === 'dorm' ? dormStock(s) : [])].some((i) => i.kind === 'food')) return ERR('needFood');
       const style = cmd.kind === 'meal' && cmd.style === 'split' ? 'split' : cmd.kind === 'meal' ? 'push' : null;
-      s.offer = { from: r, to: o.role, kind: cmd.kind, style, t: s.t };
+      s.offer = { from: r, to: o.role, kind: cmd.kind, style, t: s.t, until: s.t + rt(s, CFG.OFFER_MS) };
       emit(s, 'offer', r, p.zone, { kind: cmd.kind, style, to: o.role });
       return OK;
     }
@@ -1781,7 +1801,7 @@ function enterBeat(s, beatId) {
   if (def.meal) s.flags.lastMeal = { o: def.meal, who: sc.data.chooser };
   if (def.act === 'signOther') { const q = s.players[sc.data.other]; if (!q.signed) { q.signed = true; addItem(s, 'pass', { bag: q.role }, { data: { name: q.role } }); const got = emit(s, 'signDone', q.role, q.zone, {}); for (const w of ROLES) if (got[w] === 'same') s.players[w].knownPass[q.role] = true; } }
   const ch = typeof def.choice === 'function' ? def.choice(s) : def.choice;
-  if (ch) { sc.choice = { role: resolveRole(ch.role, sc.data), opts: ch.opts }; sc.t = s.t; }
+  if (ch) { sc.choice = { role: resolveRole(ch.role, sc.data), opts: ch.opts }; sc.t = s.t; sc.until = s.t + rt(s, CFG.SCENE_MS); }
   else { sc.choice = null; s.flags[sc.id + 'Done'] = true; s.shared.push({ t: s.t, type: 'scene', a: { sc: sc.id, end: beatId } }); s.scene = null; if (sc.id === 'lastMeal') endRun(s, 'stay'); }
 }
 function startLastMeal(s, rep) {
@@ -1811,16 +1831,16 @@ function sceneTick(s) {
     const sc = s.scene;
     // 둘이 흩어지거나 위험해지면 장면은 조용히 끝난다
     const z = sc.id === 'pen' ? 'checkpoint' : sc.id === 'lastMeal' ? sc.data.zone : 'dorm';
-    if (!safe(z) || s.t - sc.t > 30) { s.flags[sc.id + 'Done'] = true; s.scene = null; if (sc.id === 'lastMeal') { if (!s.flags.lastMeal) s.flags.lastMeal = { o: 'interrupted' }; endRun(s, 'stay'); } }
+    if (!safe(z) || s.t > (sc.until ?? sc.t + 30)) { s.flags[sc.id + 'Done'] = true; s.scene = null; if (sc.id === 'lastMeal') { if (!s.flags.lastMeal) s.flags.lastMeal = { o: 'interrupted' }; endRun(s, 'stay'); } }
     return;
   }
   if (s.phase !== 'play') return;
   const h = clockOf(s.t) / 60, day = dayOf(s.t);
   const apronOk = !s.flags.apronDone && s.flags.apronHung && day >= 2 && h >= 6 && h < 17;
-  const night2Ok = !s.flags.night2Done && s.t >= tAt(2, 21) && s.t < tAt(3, 4);
+  const night2Ok = !s.flags.night2Done && s.t >= tAt(CFG.DAYS - 1, 21) && s.t < tAt(CFG.DAYS, 4);
   if (apronOk && h < 7 && together('dorm')) { rouse('wakeApron.self'); startScene(s, 'apron'); }
   else if (apronOk && safe('dorm')) startScene(s, 'apron');
-  else if (night2Ok && s.t >= tAt(2, 22) && together('dorm')) { rouse('wakeNight2.self'); startScene(s, 'night2'); }
+  else if (night2Ok && s.t >= tAt(CFG.DAYS - 1, 22) && together('dorm')) { rouse('wakeNight2.self'); startScene(s, 'night2'); }
   else if (night2Ok && safe('dorm')) startScene(s, 'night2');
   else if (!s.flags.penDone && day >= 2 && s.checkpointOpen && s.regOpen && safe('checkpoint') && !(R.signed && A.signed)) {
     const holder = R.signed && !A.signed ? 'ren' : A.signed && !R.signed ? 'akechi' : s.flags.signBlocked ? s.flags.signBlocked.by : 'ren';
@@ -1838,14 +1858,14 @@ function nightEvent(s) {
   const pool = ['scratch', 'sos', 'stranger', 'quiet', 'quiet'];
   if (asleep.length && awake.length) pool.push('sleeptalk', 'sleeptalk');
   s.flags = s.flags || {};
-  const kind = !s.flags.manMet && dayOf(s.t) >= 2 ? 'stranger' : pickOne(s, pool);
+  const kind = !s.flags.manMet && s.t >= tAt(3, 18) ? 'stranger' : pickOne(s, pool);
   const hearAll = (key, a = {}, k = 'hear') => { for (const r of inDorm) { if (s.players[r].asleep && k !== 'radio') continue; log(s, r, k, key, a); } };
   if (kind === 'scratch') {
     if (s.base.boards) { hearAll('nScratchBoards'); return; }
     spawnZombie(s, 'eaves');
     for (const r of inDorm) { wake(s, r); log(s, r, 'hear', 'nScratch', {}); }
   } else if (kind === 'sos') {
-    s.sos = { until: s.t + 15 };
+    s.sos = { until: s.t + rt(s, CFG.KNOCK_MS) };
     for (const r of ROLES) if (s.players[r].zone === 'dorm' || hasKind(s, r, 'radio')) log(s, r, 'radio', 'nSos', {});
   } else if (kind === 'stranger') {
     const first = !s.flags.manMet;
@@ -1855,8 +1875,9 @@ function nightEvent(s) {
       if (first) { s.flags.manTold = 'part'; for (const r of inDorm) if (r === 'akechi' && !s.players[r].asleep) log(s, r, 'self', 'special.akechi.man', {}); }
       return;
     }
-    s.stranger = { until: s.t + 12, man: first };
-    s.sched.push({ t: s.t + 12, kind: 'strangerEnd', data: {}, done: false });
+    const kn = rt(s, CFG.KNOCK_MS);
+    s.stranger = { until: s.t + kn, man: first };
+    s.sched.push({ t: s.t + kn, kind: 'strangerEnd', data: {}, done: false });
     for (const r of ROLES) if (s.players[r].zone === 'dorm' || s.players[r].zone === 'eaves') { if (s.players[r].asleep) wake(s, r); log(s, r, 'hear', 'nStranger', {}); if (first && r === 'akechi') log(s, r, 'self', 'special.akechi.man', {}); }
   } else if (kind === 'sleeptalk') {
     for (const r of awake) log(s, r, 'hear', 'nSleeptalk', { who: asleep[0] });
@@ -1916,8 +1937,8 @@ function turn(s, r) {
   const old = zombieIn(s, p.zone);
   if (old) delete s.zombies[old.id];
   spawnZombie(s, p.zone, { of: r, force: true });
-  const zz = zombieIn(s, p.zone); if (zz) { zz.st = 'approach'; zz.until = s.t + CFG.APPROACH; }
-  s.pendingEnd = { t: s.t + CFG.LAST_SCENE, who: r };
+  const zz = zombieIn(s, p.zone); if (zz) { zz.st = 'approach'; zz.until = s.t + rt(s, CFG.APPROACH_MS); }
+  s.pendingEnd = { t: s.t + rt(s, CFG.LAST_SCENE_MS), who: r };
   if (s.phase === 'morning') s.phase = 'play';
 }
 // 상태 꼬리표
@@ -2150,7 +2171,7 @@ export function viewFor(s, r, sinceLog = 0) {
     skip: skipOk(s) ? { to: skipTarget(s), partnerVote: o.skipVote } : null,
     log: s.logs[r].filter((e) => e.id > sinceLog),
     cfg: { night: CFG.NIGHT_END, lights: CFG.LIGHTS_OUT, start: CFG.START_HOUR, cap: CFG.CAP, routeDur: CFG.ROUTE_DUR, jugCap: CFG.JUG_CAP, heavy: CFG.HEAVY },
-    day: dayOf(s.t), isDay: isDay(s.t), busHere: s.busHere, busAt: tAt(3, 5),
+    day: dayOf(s.t), isDay: isDay(s.t), busHere: s.busHere, busAt: nextBusAt(s), busSeats: s.busHere ? s.busSeats : (s.t < tAt(CFG.BUSES[0].day, 5.25) ? CFG.BUSES[0].seats : CFG.BUSES[CFG.BUSES.length - 1].seats), busLast: s.t >= tAt(CFG.BUSES[0].day, 5.25),
     stock: p.zone === 'dorm' ? stockCounts(s) : null,
     gateHours: s.t >= CFG.CHECKPOINT_CLOSE,
   };
