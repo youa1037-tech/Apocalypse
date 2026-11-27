@@ -1,4 +1,4 @@
-import { createGame, applyCommand, advance, viewFor, ITEM_USE, CFG, archiveOf } from './engine.js';
+import { createGame, applyCommand, advance, viewFor, ITEM_USE, CFG, archiveOf, revive } from './engine.js';
 import { SCENE_TEXT, sceneLine, storyLines, secretLine, ENDING_TEXT, endingKey, PROLOGUE, ROUTE_TEXT, MARK_TEXT, FEAT_TEXT, STATUS_TEXT, STATUS_DESC, AVATARS, TACHIE, BUILD_TEXT, QUESTIONS, OFFER_TEXT, zlabel, NAMES, ZONE_TEXT, ITEM_TEXT, TASK_TEXT, SIGNAL_TEXT, PARTNER_TEXT, RESULT_TEXT, RESULT_CARD, fmt, j, iname, zname } from './text.js';
 import { draw, icon, background, W, H } from './scene.js';
 import { TutorialHost, STEPS } from './tutorial.js';
@@ -77,7 +77,8 @@ function garble(text, seed, pct = 14) {
 }
 const clockMin = (t) => (CFG.START_HOUR * 60 + t) % 1440;
 const dur = (min) => { min = Math.max(0, Math.ceil(min)); return min >= 60 ? `${Math.floor(min / 60)}시간 ${min % 60}분` : `${min}분`; };
-const secs = (min) => Math.max(0, Math.ceil(min * CFG.MS_PER_MIN / 1000));
+let MS_NOW = CFG.MS_PER_MIN; // 지금 게임 1분이 실제 몇 ms인가(낮·밤·배속) — refresh에서 맞춘다
+const secs = (min) => Math.max(0, Math.ceil(min * MS_NOW / 1000));
 
 // ── 호스트: 로컬(한 기기 두 화면) ───────────────────────────────
 class LocalHost {
@@ -85,7 +86,7 @@ class LocalHost {
     this.key = 'saebyeok-local-v8';
     let s = null;
     try { s = JSON.parse(localStorage.getItem(this.key) || 'null'); } catch { s = null; }
-    this.s = s && s.v === 1 ? s : createGame((Math.random() * 1e9) | 0, Date.now(), { dev: true });
+    this.s = s && s.v === 1 ? revive(s) : createGame((Math.random() * 1e9) | 0, Date.now(), { dev: true });
     this.s.lastReal = Date.now();
     // 화면을 벗어나 멈춘 채 저장된 판은 다시 열면 바로 이어 간다
     if (this.s.pauseReason === 'away') { this.s.paused = false; this.s.pauseReason = null; }
@@ -380,6 +381,7 @@ const ui = {
       }
     }
     if (!v) return;
+    MS_NOW = (v.isDay ? CFG.DAY_MS_PER_MIN : CFG.MS_PER_MIN) / (v.speed || 1);
     this.renderTabs(v);
     $('#bDev').hidden = !(v.dev && !this.host.local);
     this.renderBand(v);
@@ -737,6 +739,10 @@ const ui = {
       const wk = z.id || 'z'; if (!this.warnMax[wk] || z.left > this.warnMax[wk]) this.warnMax[wk] = z.left;
       const pct = Math.round(Math.max(0, Math.min(1, z.left / this.warnMax[wk])) * 100);
       html = `<div class="at"><span>${esc(zlabel(z))} 몸을 낮춘다!</span><span class="sec">${secs(z.left)}초</span></div><div class="ab"><i style="width:${pct}%"></i></div><div class="row wrap">${parts.join('')}</div>${stance ? `<p class="dim">${stance}</p>` : ''}`;
+    } else if (v.crowdAsk) {
+      const dropTxt = v.crowdAsk.drop ? `${iname(v.crowdAsk.drop)}를 내려놓는다` : '빈손이라 버릴 건 없다';
+      html = `<div class="at"><span>큰길의 무리가 따라붙었다!</span><span class="sec">${secs(v.crowdAsk.left)}초</span></div><div class="row wrap"><button class="btn risk" data-cmd='${esc(JSON.stringify({ type: 'crowdChoice', how: 'run' }))}'>그대로 달린다</button><button class="btn inv" data-cmd='${esc(JSON.stringify({ type: 'crowdChoice', how: 'veer' }))}'>짐 내리고 골목으로</button></div><p class="dim">달리면 검문대·처마까지 끌고 갈 수 있다. 골목으로 틀면 ${esc(dropTxt)} · 8분 더 걸린다. 고르지 않으면 그대로 달린다.</p>`;
+      danger = true;
     } else if (v.scene && v.scene.choice) {
       const S = SCENE_TEXT[v.scene.id], ch = v.scene.choice;
       if (ch.role === v.role) html = `<p class="sct">「${esc(S.title)}」</p><div class="col">${ch.opts.map((o) => `<button class="btn scb" data-cmd='${esc(JSON.stringify({ type: 'sceneChoice', id: o }))}'>${esc(S.opts[o])}</button>`).join('')}</div><p class="dim">고르지 않고 말을 걸어도 된다.</p>`;
@@ -891,7 +897,7 @@ const ui = {
   sheet_route(v) {
     const sc = v.me.scouted;
     const slow = v.me.heavy && !v.me.carryHelp ? 1.6 : 1;
-    const rate = (v.isDay ? 2.5 : 6) * slow;
+    const rate = (MS_NOW / 1000) * slow;
     const known = (k) => rv(sc, k) ? `${rv(sc, k) === 'crowd' ? '무리가 몰려 있다' : '조용하다'} (${clock(rvt(sc, k))}에 봄)` : '오늘 상태 모름';
     const zid = v.zone.id, U = v.under || {};
     const canUnder = U.knows && U.open;
@@ -937,7 +943,7 @@ const ui = {
       const hasKey = m.bag.some((i) => i.kind === 'key');
       if (z === 'dorm' || hasKey) row({ type: v.zone.door.locked ? 'unlock' : 'lock' }, v.zone.door.locked ? '옥상 문 열기' : '옥상 문 잠그기', z === 'roof' ? '열쇠 사용' : '안쪽 걸쇠');
     }
-    if ((z === 'roof' || z === 'checkpoint') && v.isDay) row({ type: 'scout' }, z === 'roof' ? '길 살피기 (큰길·뒷골목)' : '큰길 살피기', `오늘 어느 길에 무리가 있는지 · ${dur(CFG.DUR.scout)}`);
+    if ((z === 'roof' || z === 'checkpoint') && v.isDay) row({ type: 'scout' }, z === 'roof' ? '길 살피기 (큰길·뒷골목)' : '큰길 살피기', `오늘 어느 길에 무리가 있는지 · ${secs(CFG.DUR.scout)}초`);
     if (z === 'checkpoint' && v.busHere) row({ type: 'board' }, '이송 차량 타기', '이송증 · 재검사 · 타면 여기서 끝');
     if (z === 'eaves' && !m.pipe) row({ type: 'pipe' }, '배수관 뒤 확인', `외벽 배수관 · ${dur('pipe')}`);
     if (v.bcast && !m.listened) row({ type: 'listen' }, '방송 끝까지 듣기', `${secs(CFG.LISTEN)}초 · 자리를 뜨면 놓친다`);
@@ -1161,6 +1167,7 @@ const ui = {
     const stage = RV.both ? 3 : RV.me || this.resStage[v.role] === 2 ? 2 : 1;
     const secRow = (q) => (c.secrets && c.secrets[q] ? `<div class="sec"><div class="sn">${esc(q === v.role ? '내가' : NAMES[pr] + '가')} 끝까지 숨긴 것</div>${c.secrets[q].length ? c.secrets[q].map((x) => `<p class="${x.kept ? 'kept' : 'out'}"><i>${x.kept ? '■' : '□'}</i>${esc(secretLine(x))}</p>`).join('') : '<p class="dim">숨긴 것이 없다.</p>'}</div>` : '');
     let html;
+    const rtabs = this.host.local ? `<div class="ptabs">${['ren', 'akechi'].map((r) => `<button class="tab${r === this.role ? ' on' : ''}" data-role="${r}">${NAMES[r]} 화면</button>`).join('')}</div>` : '';
     if (stage === 1) {
       // 1단계: 내 기억 한 문단만, 정적 속에
       html = `<div class="stp">STEP 01 / 03 · 내 기억</div>${head}<div class="endp solo"><p>${esc(ENDING_TEXT[v.role][ek])}</p></div><div class="row"><button class="btn inv" data-act="resNext">다음</button></div>`;
@@ -1189,6 +1196,7 @@ const ui = {
       this.lastCard = { c, role: v.role, story, ek, pek };
     }
     void mine;
+    html = rtabs + html;
     if (document.activeElement && document.activeElement.id === 'epi') return;
     this.set('resultBody', html);
   },

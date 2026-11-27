@@ -367,6 +367,26 @@ export function draw(canvas, v, now) {
     if (zone === 'eaves') { figure(g, 146, 64, 0.7, p.asleep ? 'lie' : 'stand', true); tags.push({ x: 146, y: 34, role: p.role, typing: p.typing, small: true }); }
     if (zone === 'dorm') { figure(g, 20, 48, 0.6, 'stand'); tags.push({ x: 20, y: 22, role: p.role, typing: p.typing, small: true }); }
   }
+  // 검문대: 펜을 든 손 → 종이를 누른 손
+  if (zone === 'checkpoint') {
+    const mt = v.me.task, pt = p.rel === 'same' ? p.task : null;
+    const signing = (mt && mt.kind === 'sign') || (pt && pt.kind === 'sign');
+    const blocked = (mt && mt.kind === 'sign' && mt.blockedBy) || (pt && pt.kind === 'sign' && pt.blockedByMe);
+    if (signing) {
+      const wob = blocked ? 0 : (Math.floor(now / 160) % 3) - 1;
+      // 펜 든 손(오른쪽에서)
+      R(g, 128 + wob, 72, 8, 5, B); R(g, 129 + wob, 73, 6, 3, Wt);
+      R(g, 135 + wob, 74, 6, 2, B); R(g, 136 + wob, 74, 4, 1, Wt);
+      line(g, 129 + wob, 76, 126 + wob, 79, B);
+      if (blocked) {
+        // 종이를 누른 손(왼쪽에서) — 손가락 넷
+        R(g, 112, 72, 12, 7, B); R(g, 113, 73, 10, 5, Wt);
+        for (let k = 0; k < 4; k++) R(g, 114 + k * 2, 73, 1, 3, B);
+        R(g, 104, 74, 9, 3, B); R(g, 104, 75, 8, 1, Wt);
+        if (Math.floor(now / 300) % 2) { R(g, 118, 64, 1, 5, Wt); R(g, 118, 70, 1, 1, Wt); }
+      }
+    }
+  }
   const z = v.zone.zombie;
   if (z) {
     const st = z.st;

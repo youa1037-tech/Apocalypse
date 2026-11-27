@@ -10,6 +10,16 @@ const P = (s) => s.players.ren, A = (s) => s.players.akechi;
 export const STEPS = [
   { id: 'hello', info: true, title: '연습 판',
     text: '너는 렌, 친구는 아케치를 맡는다. 실제 게임에서는 시간이 계속 흐르지만, 연습에서는 이 카드가 떠 있는 동안 멈춘다.' },
+  { id: 'firstHold', target: '#bNear', title: '먼저, 이 사람',
+    text: '아케치가 말없이 검문대 쪽으로 걸어간다. 아래 [주변] → 아케치 카드의 [붙잡기]로 팔을 붙들 수도, 그냥 보낼 수도 있다. 어느 쪽이든 괜찮다 — 이 게임은 상대의 손을 잡을지 말지를 고르는 게임이다.',
+    enter: (s, h) => { s.speed = 0.5; h.partner({ type: 'move', to: 'checkpoint' }); },
+    done: (s) => !!(A(s).task && A(s).task.blockedBy === 'ren') || A(s).zone === 'checkpoint',
+    after: (s, h) => {
+      const held = !!(A(s).task && A(s).task.blockedBy === 'ren');
+      if (held) { h.partner({ type: 'yield' }); h.partnerSay('…놔. 안 가.'); }
+      else { A(s).task = null; A(s).zone = 'eaves'; h.partnerSay('…잡을 줄 알았는데.'); }
+      s.speed = 2;
+    } },
   { id: 'screen', info: true, target: '#me', title: '화면 읽기',
     text: '맨 위 가운데에 구역과 며칠째·시각, 오른쪽 알약이 나 — 막대 셋은 체력·기력·추위, 글자는 지금 가장 신경 쓸 상태. 누르면 자세히 볼 수 있다.' },
   { id: 'feed', info: true, target: '#bNear', title: '대화 · 기록 / 주변',
@@ -66,7 +76,7 @@ export const STEPS = [
     done: (s) => P(s).zone === 'roof' && !P(s).task },
   { id: 'zombieInfo', info: true, target: '#bNear', title: '좀비',
     enter: (s) => spawnZombie(s, 'roof'),
-    text: '좀비가 다가온다. 원래 누구였는지가 이름에 붙는다. 달려들기 직전 6초 동안 입력창 위 칸이 까맣게 바뀐다. 가만히 있으면 몸을 낮춰 피한다 — 물리는 건 ‘하던 일 계속’이나 ‘엄호’를 직접 고른 사람뿐이다.' },
+    text: '좀비가 다가온다. 원래 누구였는지가 이름에 붙는다. 달려들기 직전 6초 동안 입력창 위 칸이 까맣게 바뀐다. 가만히 있으면 대개 몸을 낮춰 피한다(지쳐 있으면 못 피할 수도). 맞서기는 버튼에 승산이 뜨고, 밀리면 물릴 수 있다. ‘하던 일 계속’과 ‘엄호’는 스스로 노출되는 선택이다. 연습에서는 물리지 않는다.' },
   { id: 'zombie', target: '#bNear', title: '대응', enter: (s) => { s.speed = 1; },
     text: '[주변]의 좀비 카드에서 [밀어내기]나 [맞서기]를 눌러 보자. 기다려서 경고를 직접 봐도 된다.',
     done: (s) => { const z = Object.values(s.zombies)[0]; return !z || z.st === 'stun'; },

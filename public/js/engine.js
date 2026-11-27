@@ -484,6 +484,7 @@ function step(s, d) {
   if (!skipOk(s)) for (const r of ROLES) s.players[r].skipVote = false;
   if (s.offer && s.t - s.offer.t > 5) s.offer = null;
   sceneTick(s);
+  for (const r of ROLES) { const p = s.players[r]; if (p.crowdAsk && s.t >= p.crowdAsk.until) crowdResolve(s, r, 'run'); }
   for (const r of ROLES) { const p = s.players[r]; if (p.lean && !(p.task && p.task.kind === 'rest')) p.lean = null; }
   if (s.pendingEnd && s.phase === 'play' && (s.t >= s.pendingEnd.t || ROLES.every((r) => s.players[r].dead))) endRun(s, 'death', s.pendingEnd.who);
 }
@@ -614,7 +615,7 @@ function fire(s, ev) {
       const gone = ROLES.filter((r) => s.players[r].boarded);
       const st = stockCounts(s);
       if (gone.length) { feat(s, 'boarded', { who: gone, water: st.water, food: st.food }); endRun(s, 'bus'); }
-      else { feat(s, 'sentBus', { water: st.water, food: st.food }); for (const r of ROLES) log(s, r, 'pa', 'paBusGone', {}); if (ROLES.some((r) => !s.players[r].dead)) endRun(s, 'stay'); }
+      else { feat(s, 'sentBus', { water: st.water, food: st.food }); for (const r of ROLES) log(s, r, 'pa', 'paBusGone', {}); if (ROLES.some((r) => !s.players[r].dead)) { s.flags = s.flags || {}; s.flags.sentBus = true; for (const r of ROLES) log(s, r, 'self', 'sentBus.self', {}); } }
       break;
     }
   }
@@ -721,11 +722,33 @@ function stepPlayer(s, r, d) {
       if (z && o.zone === p.zone && o.task && o.task.kind === 'fight') rate = 2;
     }
     if (HELPABLE.has(p.task.kind) && o.zone === p.zone && o.task && o.task.kind === 'help' && o.task.data.of === r) rate *= CFG.HELP_RATE;
+    if (p.task.kind === 'move' && p.task.data.route === 'main' && p.task.data.to === 'checkpoint' && s.routes.main === 'crowd' && !p.task.data.crowdAsked && p.task.prog >= p.task.dur * 0.5) {
+      p.task.data.crowdAsked = true; p.task.paused = true;
+      p.crowdAsk = { until: s.t + 4 };
+      log(s, r, 'self', 'crowdBehind.self', {});
+      if (radioLink(s)) log(s, o.role, 'radio', 'crowdBehind.radio', { who: r });
+      return;
+    }
     p.task.prog += d * rate;
     if (p.task.prog >= p.task.dur) { const done = p.task; p.task = null; complete(s, r, done); }
   }
 }
 
+// 무리 선택: 시간이 지나면 그대로 달린 것으로
+function crowdResolve(s, r, how) {
+  const p = s.players[r];
+  if (!p.crowdAsk) return;
+  p.crowdAsk = null;
+  if (!p.task || p.task.kind !== 'move') return;
+  p.task.paused = false;
+  if (how === 'veer') {
+    const bag = bagOf(s, r).filter((i) => !['key', 'pass', 'note', 'result'].includes(i.kind));
+    const drop = bag.sort((a, b) => sizeOf(b) - sizeOf(a))[0];
+    if (drop) delete s.items[drop.id];
+    p.task.data.route = 'alley'; p.task.dur += 8;
+    log(s, r, 'self', 'crowdVeer.self', { item: drop ? drop.kind : null });
+  } else log(s, r, 'self', 'crowdRun.self', {});
+}
 function stepZombie(s, z) {
   const here = occupants(s, z.zone);
   if (z.zone === 'roof' && !s.roofDoor.locked && occupants(s, 'dorm').length && !here.length) {
@@ -965,7 +988,8 @@ function complete(s, r, t) {
       break;
     case 'eat': case 'drink':
       if (!it || it.loc.bag !== r) return;
-      if (it.kind === 'jug') { it.data.left -= 1; if (it.data.left <= 0) delete s.items[it.id]; }
+      if (it.kind === 'jug' && !(it.data && it.data.left > 0)) { log(s, r, 'self', 'jugEmpty.self', {}); return; }
+      if (it.kind === 'jug') it.data.left = Math.max(0, it.data.left - 1);
       else delete s.items[it.id];
       p.stamina = Math.min(100, p.stamina + (t.kind === 'eat' ? 20 : 15));
       emit(s, t.kind, r, p.zone, {});
@@ -1333,6 +1357,10 @@ export function applyCommand(s, r, cmd, now) {
       for (const l of rec.lines) log(s, r, 'radio', 'replayLine', { who: l.who, text: l.text, n: rec.plays });
       return OK;
     }
+    case 'crowdChoice':
+      if (!p.crowdAsk) return ERR('noChoice');
+      crowdResolve(s, r, cmd.how === 'veer' ? 'veer' : 'run');
+      return OK;
     case 'sceneChoice': {
       const sc = s.scene;
       if (!sc || !sc.choice || sc.choice.role !== r) return ERR('noScene');
@@ -1626,6 +1654,12 @@ export function featTotals(s) {
   }
   return t;
 }
+// JSON으로 저장했다 불러오면 끝이 없는 일(쉬기·망보기·줄다리기)의 길이가 null이 된다 — 되살린다
+export function revive(s) {
+  if (!s || !s.players) return s;
+  for (const r of ROLES) { const t = s.players[r] && s.players[r].task; if (t && (t.dur == null || t.dur === 'Infinity')) t.dur = Infinity; }
+  return s;
+}
 export function archiveOf(s) {
   const moments = s.shared.filter((m) => m.t >= s.lastDiaryT);
   const pk = (q) => (s.endDiary && s.endDiary[q] != null && s.endDiary[q] >= 0 ? moments[s.endDiary[q]] : null);
@@ -1647,11 +1681,12 @@ const SCENES = {
     beats: {
       open: { lines: ['open'], choice: { role: 'akechi', opts: [['fold', 'fold'], ['leave', 'leaveIt']] } },
       fold: { lines: (s) => (s.flags.signBlocked ? ['a1', 'a2', 'a3', 'a4', 'a5'] : ['b1', 'b2']),
-        choice: (s) => (s.flags.signBlocked ? { role: 'akechi', opts: [['tell', 'tell'], ['tie', 'tie']] } : { role: 'akechi', opts: [['tie', 'tieB'], ['hand', 'handOnly']] }) },
+        choice: (s) => (s.flags.signBlocked ? { role: 'akechi', opts: [s.players.akechi.listened ? ['tell', 'tell'] : ['own', 'own'], ['tie', 'tie']] } : { role: 'akechi', opts: [['tie', 'tieB'], ['hand', 'handOnly']] }) },
       tell: { lines: ['tell1', 'tellTail', 'tell2'], set: { broadcastShared: true }, choice: { role: 'ren', opts: [['understood', 'understood'], ['quiet', 'quietEnd']] } },
       tie: { lines: ['tie1'], set: { apronTied: true }, choice: { role: 'ren', opts: [['ask', 'ask'], ['letTie', 'letTie']] } },
       tieB: { lines: ['tie1'], set: { apronTied: true }, choice: { role: 'ren', opts: [['thanks', 'thanks'], ['letTie', 'letTie']] } },
-      ask: { lines: ['ask1'], set: { asked: true }, choice: { role: 'akechi', opts: [['tell', 'tell'], ['silent', 'silent']] } },
+      ask: { lines: ['ask1'], set: { asked: true }, choice: (s) => ({ role: 'akechi', opts: [s.players.akechi.listened ? ['tell', 'tell'] : ['own', 'own'], ['silent', 'silent']] }) },
+      own: { lines: ['own1', 'own2'], set: { ownReason: true }, choice: { role: 'ren', opts: [['understood', 'understood'], ['quiet', 'quietEnd']] } },
       silent: { lines: ['silent1'], set: { askedNoAnswer: true } },
       letTie: { lines: ['letTie1'] },
       thanks: { lines: ['thanks1', 'thanks2'] },
@@ -1676,6 +1711,17 @@ const SCENES = {
       stayTogether: { lines: ['st1', 'st2'], set: { n2Stay: true } },
     },
   },
+  lastMeal: {
+    beats: {
+      open: { lines: (s) => [s.scene.data.short ? 'shortOpen' : 'fedOpen'],
+        choice: (s) => (s.scene.data.short ? { role: 'chooser', opts: [['yield', 'yield'], ['split', 'split'], ['goOut', 'goOut']] } : { role: 'chooser', opts: [['lockIn', 'lockIn'], ['walk', 'walk']] }) },
+      lockIn: { lines: ['l1', 'l2'], meal: 'lockIn' },
+      walk: { lines: ['w1', 'w2'], meal: 'walk' },
+      yield: { lines: ['y1', 'y2'], meal: 'yield' },
+      split: { lines: ['s1', 's2', 's3'], meal: 'split' },
+      goOut: { lines: ['g1', 'g2', 'g3'], meal: 'goOut' },
+    },
+  },
   pen: {
     beats: {
       open: { lines: ['open'], choice: { role: 'holder', opts: [['offer', 'offer'], ['keep', 'keep']] } },
@@ -1691,11 +1737,12 @@ function sceneLog(s, sc, key, data) {
   for (const r of ROLES) if (!s.players[r].dead) log(s, r, who ? 'chat' : 'see', 'sc', { sc, b: key, who, holder: data.holder || null, other: data.other || null });
 }
 function sceneWho(s, sc, key, data) { return SCENE_SPEAKER[sc] && SCENE_SPEAKER[sc][key] ? resolveRole(SCENE_SPEAKER[sc][key], data) : null; }
-const resolveRole = (x, data) => (x === 'holder' ? data.holder : x === 'other' ? data.other : x);
+const resolveRole = (x, data) => (data && typeof data[x] === 'string' && (data[x] === 'ren' || data[x] === 'akechi') ? data[x] : x);
 // 각 줄을 누가 말하는지(없으면 서술)
 const SCENE_SPEAKER = {
-  apron: { a1: 'akechi', a2: 'ren', a4: 'ren', a5: 'akechi', b1: 'akechi', b2: 'ren', tell2: 'akechi', ask1: 'ren', thanks1: 'ren', thanks2: 'akechi', und1: 'ren', und2: 'akechi' },
+  apron: { own1: 'akechi', own2: 'akechi', a1: 'akechi', a2: 'ren', a4: 'ren', a5: 'akechi', b1: 'akechi', b2: 'ren', tell2: 'akechi', ask1: 'ren', thanks1: 'ren', thanks2: 'akechi', und1: 'ren', und2: 'akechi' },
   night2: { o1: 'akechi', o2: 'ren', al1: 'akechi', al2: 'akechi', rf1: 'ren', rf2: 'akechi', rf3: 'ren', yn1: 'ren', yn2: 'akechi', wy1: 'akechi', cf1: 'ren', cf2: 'akechi', yu1: 'ren', cs2: 'akechi', sg1: 'ren', sg2: 'akechi', st1: 'ren', st2: 'akechi' },
+  lastMeal: { l1: 'chooser', l2: 'partner', w1: 'chooser', w2: 'partner', y1: 'chooser', y2: 'partner', s2: 'partner', s3: 'chooser', g1: 'chooser', g2: 'partner' },
   pen: { offerA: 'holder', offerB: 'holder', writeA: 'other', writeB: 'other', refuse1: 'other' },
 };
 function enterBeat(s, beatId) {
@@ -1704,10 +1751,19 @@ function enterBeat(s, beatId) {
   const lines = typeof def.lines === 'function' ? def.lines(s) : def.lines || [];
   for (const k of lines) sceneLog(s, sc.id, k, sc.data);
   if (def.set) Object.assign(s.flags, def.set);
+  if (def.meal) s.flags.lastMeal = { o: def.meal, who: sc.data.chooser };
   if (def.act === 'signOther') { const q = s.players[sc.data.other]; if (!q.signed) { q.signed = true; addItem(s, 'pass', { bag: q.role }, { data: { name: q.role } }); const got = emit(s, 'signDone', q.role, q.zone, {}); for (const w of ROLES) if (got[w] === 'same') s.players[w].knownPass[q.role] = true; } }
   const ch = typeof def.choice === 'function' ? def.choice(s) : def.choice;
   if (ch) { sc.choice = { role: resolveRole(ch.role, sc.data), opts: ch.opts }; sc.t = s.t; }
-  else { sc.choice = null; s.flags[sc.id + 'Done'] = true; s.shared.push({ t: s.t, type: 'scene', a: { sc: sc.id, end: beatId } }); s.scene = null; }
+  else { sc.choice = null; s.flags[sc.id + 'Done'] = true; s.shared.push({ t: s.t, type: 'scene', a: { sc: sc.id, end: beatId } }); s.scene = null; if (sc.id === 'lastMeal') endRun(s, 'stay'); }
+}
+function startLastMeal(s, rep) {
+  const [R, A] = [s.players.ren, s.players.akechi];
+  const short = ROLES.filter((q) => !s.players[q].dead && rep[q] && (!rep[q].water || !rep[q].food));
+  if (R.dead || A.dead) { endRun(s, 'stay'); return; }
+  if (R.zone !== A.zone) { s.flags.lastMeal = { o: 'apart' }; endRun(s, 'stay'); return; }
+  const chooser = short.length === 1 ? short[0] : 'akechi';
+  startScene(s, 'lastMeal', { zone: R.zone, short: short.length > 0, chooser, partner: other(chooser) });
 }
 function startScene(s, id, data = {}) {
   s.scene = { id, beat: null, choice: null, data, t: s.t };
@@ -1727,8 +1783,8 @@ function sceneTick(s) {
   if (s.scene) {
     const sc = s.scene;
     // 둘이 흩어지거나 위험해지면 장면은 조용히 끝난다
-    const z = sc.id === 'pen' ? 'checkpoint' : 'dorm';
-    if (!safe(z) || s.t - sc.t > 30) { s.flags[sc.id + 'Done'] = true; s.scene = null; }
+    const z = sc.id === 'pen' ? 'checkpoint' : sc.id === 'lastMeal' ? sc.data.zone : 'dorm';
+    if (!safe(z) || s.t - sc.t > 30) { s.flags[sc.id + 'Done'] = true; s.scene = null; if (sc.id === 'lastMeal') { if (!s.flags.lastMeal) s.flags.lastMeal = { o: 'interrupted' }; endRun(s, 'stay'); } }
     return;
   }
   if (s.phase !== 'play') return;
@@ -1885,9 +1941,9 @@ function consume(s, r, kind) {
   const pools = [bagOf(s, r)];
   if (p.zone === 'dorm') pools.push(dormStock(s));
   for (const [i, pool] of pools.entries()) {
-    const it = pool.find((x) => x.kind === kind) || (kind === 'water' ? pool.find((x) => x.kind === 'jug') : null);
+    const it = pool.find((x) => x.kind === kind) || (kind === 'water' ? pool.find((x) => x.kind === 'jug' && x.data && x.data.left > 0) : null);
     if (!it) continue;
-    if (it.kind === 'jug') { it.data.left -= 1; if (it.data.left <= 0) delete s.items[it.id]; }
+    if (it.kind === 'jug') it.data.left = Math.max(0, it.data.left - 1);
     else delete s.items[it.id];
     return i === 0 ? 'bag' : 'stock';
   }
@@ -1960,6 +2016,7 @@ function morningCmd(s, r, cmd, now) {
     s.diary.push({ day: mo.day - 1, feats: mo.feats || [], picks: { ren: pk('ren'), akechi: pk('akechi') }, lines: { ren: mo.diary.ren ? mo.diary.ren.line : '', akechi: mo.diary.akechi ? mo.diary.akechi.line : '' } });
     s.phase = 'play'; s.lastReal = now; s.paused = false; s.pauseReason = null;
     for (const q of ROLES) log(s, q, 'self', 'dayStart.self', { day: s.morning.day });
+    if (s.flags && s.flags.sentBus && !s.flags.lastMeal) startLastMeal(s, mo.rep);
   }
   return OK;
 }
@@ -2067,6 +2124,7 @@ export function viewFor(s, r, sinceLog = 0) {
   v.base = s.base; v.buildNeed = CFG.BUILD;
   v.scene = s.scene ? { id: s.scene.id, data: s.scene.data, choice: s.scene.choice ? { role: s.scene.choice.role, opts: s.scene.choice.opts.map((o2) => o2[0]) } : null } : null;
   { const rec = recFor(s, r); v.rec = rec ? { n: rec.lines.length, plays: rec.plays, from: rec.from, t: rec.last, dorm: rec === s.dormRec } : null; }
+  v.crowdAsk = p.crowdAsk ? { left: Math.max(0, p.crowdAsk.until - s.t), drop: (bagOf(s, r).filter((i) => !['key', 'pass', 'note', 'result'].includes(i.kind)).sort((a, b) => sizeOf(b) - sizeOf(a))[0] || {}).kind || null } : null;
   v.under = { knows: !!p.knowsUnder, open: s.t >= CFG.BROADCASTS[0], dur: CFG.UNDER_DUR };
   v.offer = s.offer && (s.offer.to === r || s.offer.from === r) ? { kind: s.offer.kind, style: s.offer.style || null, mine: s.offer.from === r } : null;
   v.stranger = !!(s.stranger && (p.zone === 'dorm' || p.zone === 'eaves'));

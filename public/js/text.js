@@ -196,6 +196,8 @@ export const SCENE_TEXT = {
       b1: '젖은 채로 두면 못 쓰게 돼.',
       b2: '…고마워.',
       tell1: '아케치가 어젯밤 수신기에서 들은 방송을 처음부터 다시 읊는다.',
+      own1: '명단이 마음에 안 들었어. 이름을 적으면, 누군가 그걸로 사람을 고를 수 있잖아.',
+      own2: '증거는 없어. 그냥… 싫었어.',
       tellTail: '“…접수자는 탑승 시 재검사를 받습니다. 재검사 불합격자는 명단에서 제외…”',
       tell2: '끝 문장만 나중에 덧입혔어. 누가 왜 그랬는지는 몰라.',
       tie1: '아케치가 앞치마를 다시 펴서, 말없이 렌의 허리에 두른다.',
@@ -212,7 +214,7 @@ export const SCENE_TEXT = {
     },
     opts: {
       fold: '앞치마를 개서 건넨다', leave: '그냥 둔다', tell: '어제 들은 방송을 들려준다', tie: '앞치마를 다시 펴서 렌에게 두른다',
-      hand: '갠 앞치마를 손에 얹어 준다', ask: '더 묻는다', letTie: '매듭을 묶게 둔다', thanks: '고맙다고 한다',
+      hand: '갠 앞치마를 손에 얹어 준다', own: '자기 말로 이유를 댄다', ask: '더 묻는다', letTie: '매듭을 묶게 둔다', thanks: '고맙다고 한다',
       understood: '“그래서 막았구나.”', quiet: '아무 말도 하지 않는다', silent: '대답 대신 매듭을 조인다',
     },
   },
@@ -248,6 +250,26 @@ export const SCENE_TEXT = {
       stillGo: '“그래도 가.”', stayTogether: '“그럼 같이 남자.”',
     },
   },
+  lastMeal: {
+    title: '마지막 배급',
+    lines: {
+      fedOpen: '06시. 배급이라 부르기엔 초라한 통조림 두 개와 물 두 병. 그래도 둘 몫이다.',
+      shortOpen: '06시. 구호함 바닥이 보인다. 둘이 나누기엔 모자라다.',
+      l1: '문 걸어. 하루 더 버티자.',
+      l2: '…하루씩 늘려 가는 거, 나쁘지 않네.',
+      w1: '밝아지면 걸어서 나가자. 차 없이도.',
+      w2: '갈 데가 있다는 얼굴이네.',
+      y1: '내 건 됐어. 너 먹어.',
+      y2: '…그런 말, 두 번은 안 들어 줘.',
+      s1: '남은 걸 반으로 나눈다. 한 숟가락씩 번갈아.',
+      s2: '배는 안 부르네.',
+      s3: '그래도 같이 먹었잖아.',
+      g1: '다녀올게. 상점가까지만.',
+      g2: '…늦으면 문 안 열어 줄 거야.',
+      g3: '문이 닫힌다. 걸쇠 소리가 오래 남는다.',
+    },
+    opts: { lockIn: '“문 걸어. 하루 더 버티자.”', walk: '“밝아지면 걸어서 나가자.”', yield: '내 몫을 넘긴다', split: '남은 걸 반씩 나눈다', goOut: '혼자 다시 나간다' },
+  },
   pen: {
     title: '펜',
     lines: {
@@ -265,7 +287,7 @@ export const SCENE_TEXT = {
 };
 export function sceneLine(a) {
   const S = SCENE_TEXT[a.sc]; if (!S) return '';
-  const t = String(S.lines[a.b] || '').replace('{holder}', NAMES[a.holder] || '').replace('{other}', NAMES[a.other] || '');
+  const t = String(S.lines[a.b] || '').replace('{holder}', NAMES[a.holder] || '').replace('{other}', NAMES[a.other] || '').replace('{chooser}', NAMES[a.chooser] || '');
   return t;
 }
 // ★ 끝까지 숨긴 것 — 결산에서 비밀 시트처럼 편다. a: { item, zone, res, prog }
@@ -341,6 +363,7 @@ export function storyLines(f) {
     if (f.signOutcome === 'pulled') out.push(`${j(N(f.signBlocked.on), '은')} 뿌리치고 이름을 썼다.`);
     if (f.signOutcome === 'stopped') out.push('펜은 끝내 멈췄다.');
     if (f.broadcastShared) out.push('이튿날, 막은 이유(덧입힌 방송)를 들려주었다.');
+    else if (f.ownReason) out.push('이튿날, 아케치는 방송 대신 자기 말로 이유를 댔다.');
     else if (f.askedNoAnswer) out.push('이튿날 렌이 물었지만, 대답은 매듭이었다.');
     else out.push('막은 이유는 끝내 말하지 않았다.');
   }
@@ -364,6 +387,10 @@ export function storyLines(f) {
     }
   }
   if (f.crowdLed) out.push(`${f.crowdLed.day}일, ${j(N(f.crowdLed.who), '이')} 큰길의 무리를 대피소 앞까지 끌고 왔다.`);
+  if (f.lastMeal) {
+    const LM = { lockIn: '마지막 배급을 둘이 나눠 먹고, 문을 걸었다.', walk: '마지막 배급을 먹고, 걸어서 나가기로 했다.', yield: `모자란 아침, ${j(N(f.lastMeal.who), '은')} 자기 몫을 넘겼다.`, split: '모자란 아침을 반씩 나눴다.', goOut: `모자란 아침, ${j(N(f.lastMeal.who), '은')} 혼자 다시 문을 나섰다.`, apart: '마지막 아침, 둘은 같은 곳에 있지 않았다.', interrupted: '마지막 아침은 끝까지 먹지 못했다.' };
+    if (LM[f.lastMeal.o]) out.push(LM[f.lastMeal.o]);
+  }
   if (f.penOffered) out.push(`${j(N(f.penHolder), '이')} 먼저 펜을 내밀었다.${f.penWritten ? ' 이름이 적혔다.' : f.penRefused ? ' “아직은.”' : ''}`);
   return out;
 }
@@ -425,6 +452,12 @@ export const LOG = {
     : `${j(a.who, '이')} 통조림을 내 쪽으로 밀어 둔다. 그대로 받았다.`),
   'wakeApron.self': '아침 점검 방송에 눈이 떠진다. 바깥은 아직 닫혀 있다.',
   'wakeNight2.self': '형광등이 한 번 깜빡인다. 잠이 얕게 깬다.',
+  'sentBus.self': '차는 떠났다. 06시 배급까지, 남은 것으로 버텨야 한다.',
+  'jugEmpty.self': '물통이 비어 있다.',
+  'crowdBehind.self': '등 뒤로 발소리가 불어난다. 큰길의 무리가 따라붙었다!',
+  'crowdBehind.radio': (a) => `지직— ${a.who}의 숨이 거칠다. 뒤에서 여럿의 발소리.`,
+  'crowdRun.self': '그대로 달린다. 검문대까지 끌고 갈 수도 있다.',
+  'crowdVeer.self': (a) => `${a.item ? `${j(ITEM_TEXT[a.item] ? ITEM_TEXT[a.item].name : a.item, '을')} 내려놓고 ` : ''}골목으로 튼다. 돌아가는 길이 길어진다.`,
   'replay.self': (a) => `수신기를 귀에 대고 녹음을 다시 튼다.${a.n > 1 ? ` (${a.n}번째)` : ''}`,
   'replay.same': '{who:이} 수신기를 귀에 댄다.',
   replayLine: (a) => `녹음 — 지직… ${a.who} 「${a.text}」`,
