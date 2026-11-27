@@ -26,7 +26,7 @@ export const AVATARS = { ren: ART.renAv, akechi: ART.akechiAv };
 // 스탠딩(코코포리아식 탈): 표정별 그림 경로. 채팅에서 '@웃음 대사'처럼 쓰면 그 표정이 뜬다.
 // 예: ren: { 기본: 'img/ren.png', 웃음: 'img/ren_smile.png', 굳음: 'img/ren_stern.png' }
 // 비어 있으면 얼굴 칸 그림 → 없으면 흑백 실루엣을 쓴다.
-export const TACHIE = { ren: { 기본: ART.renTachie }, akechi: { 기본: ART.akechiTachie } };
+export const TACHIE = { ren: { 기본: null }, akechi: { 기본: null } }; // 무대 스탠딩은 쓰지 않는다(index.html에서 #tachie를 숨김)
 
 // ★ 프롤로그 — 시작 전에 각자 읽는다. 한 항목이 한 장. 줄바꿈은 \n
 export const PROLOGUE = {
