@@ -438,7 +438,7 @@ const ui = {
     const showBand = Date.now() < (this.bandUntil || 0);
     $('#band').hidden = !showBand;
     if (showBand && pa) { const part = `${fmt(pa.key, pa.a, v.role)} ■ `; this.set('bandText', `<span>${esc(part.repeat(3))}</span><span aria-hidden="true">${esc(part.repeat(3))}</span>`); }
-    this.set('locClock', `${v.day}일 ${clock(v.t)} · ${esc(dl)}`);
+    this.set('locClock', `${v.day}일 ${clock(v.t)}<span class="dl"> · ${esc(dl)}</span>`);
   },
   avatar(role, extra = '') {
     const src = AVATARS[role];
@@ -526,16 +526,17 @@ const ui = {
     const nc = tab === 'chat' ? 0 : unread(parts.chat, 'chat');
     const nl = tab === 'log' ? 0 : unread(parts.log, 'log');
     const z = v.zone.zombie;
-    const nearAlert = tab !== 'near' && ((z && z.st !== 'idle') || (v.partner.rel === 'same' && v.partner.task && v.partner.task.interruptible));
+    const nearAlert = this.sheet !== 'near' && ((z && z.st !== 'idle') || (v.partner.rel === 'same' && v.partner.task && v.partner.task.interruptible));
     const b = (n) => (n ? `<b>${n > 99 ? '99+' : n}</b>` : '');
     void nl;
     const nn = this.nearCount || 0;
+    { const bn = $('#bNear'); const badge = nearAlert || (z && z.st === 'warn') ? '<b class="al">!</b>' : nn ? `<b>${nn}</b>` : ''; const t = `${icon('eye', 17)}<span class="tl">주변</span>${badge}`; if (bn && this.bnKey !== t) { bn.innerHTML = t; this.bnKey = t; } if (bn) bn.classList.toggle('alert', !!(nearAlert || (z && z.st === 'warn'))); }
     this.set('seg', `<button role="tab" data-tab="chat" aria-selected="${tab === 'chat'}">대화 · 기록${b(nc)}</button><button role="tab" data-tab="near" aria-selected="${tab === 'near'}">주변${nearAlert ? '<b class="al">!</b>' : nn ? `<span class="cnt">${nn}</span>` : ''}</button>`);
   },
   renderPane(v) {
     const parts = this.splitLog(v);
     this.renderSeg(v, parts);
-    if (this.tab === 'log') this.tab = 'chat';
+    this.tab = 'chat';
     this.nearCount = (this.nearHtml(v).match(/<li class="nc/g) || []).length;
     const tab = this.tab || 'chat';
     const el = $('#pane');
@@ -878,7 +879,7 @@ const ui = {
   close() { this.sheet = null; this.markTools(); $('#sheet').hidden = true; this.prev.sheetBody = null; },
   renderSheet(v) {
     if (!v) return;
-    const titles = { status: '상태', route: '어느 길로 갈까', goals: '할 일', act: '행동', bag: '가방', talk: '쪽지 · 지난 대화', log: '일지 · 기록', map: '지도', menu: '메뉴', dev: '시험 도구' };
+    const titles = { near: '주변', status: '상태', route: '어느 길로 갈까', goals: '할 일', act: '행동', bag: '가방', talk: '쪽지 · 지난 대화', log: '일지 · 기록', map: '지도', menu: '메뉴', dev: '시험 도구' };
     this.set('sheetTitle', titles[this.sheet] || '');
     const body = this['sheet_' + this.sheet](v);
     if (this.sheet === 'talk') { this.set('sheetBody', body.top); this.set('sheetFoot', body.foot); }
@@ -1009,32 +1010,47 @@ const ui = {
   },
   sheet_map(v) {
     const p = v.partner, me = v.me;
-    const where = p.zone ? `${zname(p.zone)} (${p.rel === 'same' ? '같은 곳' : '창 너머'})` : `모름 · 마지막으로 본 곳 ${zname(p.lastSeen.zone)} ${clock(p.lastSeen.t)}`;
+    const where = p.zone ? `${zname(p.zone)} · ${p.rel === 'same' ? '같은 곳' : '창 너머'}` : `안 보인다 · 마지막 ${zname(p.lastSeen.zone)} ${clock(p.lastSeen.t)}`;
     const marksAt = (z) => me.marks.map((m, i) => ({ m, i })).filter((x) => x.m.zone === z);
     const exOf = (z) => v.zone.exits.find((e) => e.to === z);
-    const goLine = (z) => {
-      if (me.zone === z) return '<em class="mzs">지금 여기</em>';
+    const sub = (z) => {
+      if (me.zone === z) return '지금 여기';
       const ex = exOf(z);
-      if (!ex) return '';
-      if (ex.why) return `<em class="mzs off">${esc(WHY[ex.why])}</em>`;
-      if (!me.mobile) return '<em class="mzs off">못 움직임</em>';
-      return `<em class="mzs go">${ex.far ? '길 고르기 ▸' : `가기 · ${dur(CFG.DUR.move)} ▸`}</em>`;
+      if (!ex) return '바로 못 감';
+      if (ex.why) return WHY[ex.why];
+      if (!me.mobile) return '못 움직임';
+      return ex.far ? '길 고르기' : `${dur(CFG.DUR.move)}`;
     };
-    const zs = ['roof', 'eaves', 'dorm', 'checkpoint', 'market', 'pump'].map((z) => { const ex = exOf(z); const can = ex && !ex.why && me.mobile; return `<div class="mz mz-${z}${me.zone === z ? ' here' : ''}${can ? ' can' : ''}"${can ? ` data-move="${z}" role="button" tabindex="0"` : ''}><b>${esc(ZONE_TEXT[z].name)}</b>${goLine(z)}${me.zone === z ? '<span>나</span>' : ''}${p.zone === z ? `<span>${esc(NAMES[p.role])}</span>` : ''}${marksAt(z).map((x) => `<button class="mk" data-cmd='${esc(JSON.stringify({ type: 'unmark', i: x.i }))}' title="지우기">${esc(markLabel(x.m))} ×</button>`).join('')}</div>`; }).join('');
+    const cell = (z) => {
+      const ex = exOf(z), can = ex && !ex.why && me.mobile, here = me.zone === z;
+      const who = `${here ? '<i class="pp me">나</i>' : ''}${p.zone === z ? `<i class="pp">${esc(NAMES[p.role])}</i>` : ''}`;
+      const mk = marksAt(z).map((x) => `<button class="mk" data-cmd='${esc(JSON.stringify({ type: 'unmark', i: x.i }))}' title="지우기">${esc(markLabel(x.m))} ×</button>`).join('');
+      return `<div class="mz mz-${z}${here ? ' here' : ''}${can ? ' can' : ''}${ex && ex.why ? ' shut' : ''}"${can ? ` data-move="${z}" role="button" tabindex="0"` : ''}><div class="mzt"><b>${esc(ZONE_TEXT[z].name)}</b>${who}</div><span class="mzs">${esc(sub(z))}${can ? ' ▸' : ''}</span>${mk ? `<div class="mks">${mk}</div>` : ''}</div>`;
+    };
     const sc = me.scouted;
-    const routes = ['main', 'alley'].map((k) => `${ROUTE_TEXT[k]}: ${rv(sc, k) ? `${rv(sc, k) === 'crowd' ? '무리' : '조용'} (${clock(rvt(sc, k))})` : '모름'}`).join(' · ');
+    const rs = (k) => (rv(sc, k) ? `${rv(sc, k) === 'crowd' ? '무리' : '조용'} ${clock(rvt(sc, k))}` : '모름');
     const tags = ['water', 'supply', 'crowd', 'danger', 'wait'];
     const zOpts = ['eaves', 'checkpoint', 'roof', 'dorm', 'market', 'pump'];
     const markZone = this.markZone || me.zone;
-    return `<p class="dim" style="margin:0 0 6px;font-size:13px">갈 곳을 누르면 이동한다. 이어진 곳만 갈 수 있다.</p><div class="bigmap">${zs}</div>
-      <p style="margin:4px 0">${esc(NAMES[p.role])}: ${esc(where)}<br><span class="dim">오늘 길: ${esc(routes)}</span></p>
-      ${p.rel === 'same' && p.zone ? '<button class="btn sm inv" data-cmd="shareMap">지도 함께 펴기 (서로의 표시·길 정보 합치기)</button>' : '<p class="dim" style="margin:0">같은 곳에 있으면 지도를 함께 펴서 표시를 합칠 수 있다.</p>'}
-      <div class="sh">표시 남기기</div>
+    const info = [[NAMES[p.role], where], ['큰길', rs('main')], ['뒷골목', rs('alley')], ['옥상 문', v.zone.door ? (v.zone.door.locked ? '잠김' : '열림') : '여기선 모름'], ['검문', v.checkpointOpen ? '열림' : '닫힘']];
+    return `<div class="mapg">
+        <div class="mrow">${cell('roof')}</div>
+        <div class="mlink" aria-hidden="true"><i></i><i></i></div>
+        <div class="mrow two">${cell('eaves')}<span class="mglass" aria-hidden="true">창</span>${cell('dorm')}</div>
+        <div class="mlink" aria-hidden="true"><i></i><i></i></div>
+        <div class="mrow">${cell('checkpoint')}</div>
+        <div class="mlink far" aria-hidden="true"><i></i><i></i></div>
+        <div class="mrow two">${cell('market')}${cell('pump')}</div>
+      </div>
+      <dl class="minfo">${info.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl>
+      ${p.rel === 'same' && p.zone ? '<button class="btn sm" data-cmd="shareMap" style="width:100%">지도 함께 펴기 · 서로 본 길과 표시를 합친다</button>' : '<p class="dim" style="margin:0;font-size:12px">곁에 있으면 지도를 함께 펴서 본 것을 합칠 수 있다.</p>'}
+      <details class="mmark"><summary>표시 남기기</summary>
       <div class="row wrap">${zOpts.map((z) => `<button class="btn sm${z === markZone ? ' inv' : ''}" data-mz="${z}">${esc(ZONE_TEXT[z].short)}</button>`).join('')}</div>
       <div class="row wrap">${tags.map((t) => `<button class="btn sm" data-cmd='${esc(JSON.stringify({ type: 'mark', zone: markZone, tag: t }))}'>${esc(MARK_TEXT[t])}</button>`).join('')}</div>
-      <form id="markForm" class="say"><input id="markText" maxlength="20" autocomplete="off" placeholder="${esc(ZONE_TEXT[markZone].short)}에 직접 쓰기"><button class="btn">남기기</button></form>
-      <p class="dim">옥상 문: ${v.zone.door ? (v.zone.door.locked ? '잠김' : '열림') : '여기서는 모름'} · 검문: ${v.checkpointOpen ? '열림' : '닫힘'}</p>`;
+      <form id="markForm" class="say"><input id="markText" maxlength="20" autocomplete="off" placeholder="${esc(ZONE_TEXT[markZone].short)}에 직접 쓰기"><button class="btn">남기기</button></form></details>`;
   },
+  // ── 주변: 따로 연 시트(탭 대신) ──
+  sheet_near(v) { return `<ol class="nearlist">${this.nearHtml(v)}</ol>`; },
 
   sheet_menu() {
     return `<div class="list"><button class="li" data-sheet="log"><span>기록</span><span class="dim">본 것 · 들은 것 · 무전</span></button>
@@ -1269,7 +1285,7 @@ document.addEventListener('click', (e) => {
     if (ex && ex.why) { toast(WHY[ex.why] || '갈 수 없다.'); return; }
     ui.send({ type: 'move', to: d.move }); if (ui.sheet === 'map') ui.close(); return;
   }
-  if (d.cmd) { let cmd; try { cmd = d.cmd.startsWith('{') ? JSON.parse(d.cmd) : { type: d.cmd }; } catch { return; } ui.send(cmd); if (ui.sheet && ['use', 'give', 'drop', 'sill', 'stash', 'pick'].includes(cmd.type)) ui.sel = null; if (ui.sheet === 'act' || ui.sheet === 'route' || (ui.sheet === 'bag' && ['fill', 'hide'].includes(cmd.type))) ui.close(); return; }
+  if (d.cmd) { let cmd; try { cmd = d.cmd.startsWith('{') ? JSON.parse(d.cmd) : { type: d.cmd }; } catch { return; } ui.send(cmd); if (ui.sheet && ['use', 'give', 'drop', 'sill', 'stash', 'pick'].includes(cmd.type)) ui.sel = null; if (ui.sheet === 'act' || ui.sheet === 'route' || (ui.sheet === 'near' && !['give'].includes(cmd.type)) || (ui.sheet === 'bag' && ['fill', 'hide'].includes(cmd.type))) ui.close(); return; }
   if (d.sheet) { ui.logScrolled = false; ui.open(d.sheet); return; }
   if (d.sel) { ui.sel = ui.sel === d.sel ? null : d.sel; ui.prev.sheetBody = null; ui.renderSheet(ui.view()); return; }
   if (d.sig) { ui.send({ type: 'signal', which: d.sig }); ui.sigOpen = false; ui.refresh(); return; }
@@ -1285,7 +1301,7 @@ document.addEventListener('click', (e) => {
   if (d.act === 'saveImg') { saveResultImage(ui); return; }
   if (d.act === 'restart') { ui.resStage = {}; ui.lastCard = null; }
   if (d.act === 'restart') { ui.coachTarget = null; ui.prev = {}; ui.page = {}; ui.pick = {}; ui.line = {}; ui.dpick = {}; ui.dline = {}; ui.host.restart(); ui.close(); ui.prev = {}; ui.refresh(); return; }
-  if (d.act === 'search') { ui.send({ type: 'search' }); return; }
+  if (d.act === 'search') { ui.send({ type: 'search' }); if (ui.sheet === 'near') ui.close(); return; }
   if (d.act === 'local') { startLocal(); return; }
   if (d.act === 'tutorial') { ui.coachTarget = null; ui.prev = {}; ui.start(new TutorialHost(), 'ren'); return; }
   if (d.act === 'coachNext') { ui.host.next(); ui.prev.coach = null; ui.refresh(); return; }
@@ -1377,7 +1393,7 @@ async function joinRoom(raw) {
 function pickRole(r) { if (!pendingCode) return; location.hash = pendingCode; ui.start(new RemoteHost(pendingCode, r), r); }
 
 // 버튼 아이콘
-const TB = { bAct: ['act', '행동'], bBag: ['bag', '가방'], bMap: ['map', '지도'], bLog: ['book', '일지'], bDev: ['gear', '도구'] };
+const TB = { bNear: ['eye', '주변'], bAct: ['act', '행동'], bBag: ['bag', '가방'], bMap: ['map', '지도'], bLog: ['book', '일지'], bDev: ['gear', '도구'] };
 for (const [id, [ic, label]] of Object.entries(TB)) $('#' + id).innerHTML = `${icon(ic, 17)}<span class="tl">${label}</span>`;
 $('#bHome').innerHTML = icon('home', 16);
 startSnow();
