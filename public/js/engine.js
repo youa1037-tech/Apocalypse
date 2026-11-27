@@ -61,6 +61,17 @@ export const CFG = {
   DODGE_FAIL: [0.1, 0.35], // 가만히 몸을 낮췄는데 못 피할 확률: 보통 / 기력 30 미만
   PUSH_FAIL: 0.25,         // 기력 30 미만일 때 밀어내기가 헛도는 확률
   TOUGH: 0.3,              // 단단한 좀비(두 번 쓰러뜨려야 함)가 나올 확률
+  // 무기: 가방에 있으면 맞서기·밀어내기에 저절로 쓴다(가장 좋은 것). dur = 쓸 수 있는 횟수
+  //   fight 승산 더하기 · keep 밀렸을 때 물릴 확률 빼기(거리를 둔다) · noise 소음 더하기
+  //   push 밀어내기가 지쳐도 헛돌지 않음 · stun 비틀거리는 시간 더하기(게임 분)
+  WEAPONS: {
+    umbrella:     { fight: 0.1,  keep: 0.2,  dur: 3, noise: 0 },
+    knife:        { fight: 0.15, keep: -0.1, dur: 8, noise: -1 },
+    pipe:         { fight: 0.2,  keep: 0,    dur: 5, noise: 1 },
+    bat:          { fight: 0.25, keep: 0.05, dur: 6, noise: 1 },
+    extinguisher: { push: true,  stun: 1.5,  dur: 3, noise: 1 },
+  },
+  WEAPON_DAILY: ['pipe', 'bat', 'knife', 'umbrella', 'extinguisher'], // 날마다 상점가·급수소 어딘가에 하나
   SYMPTOM_AFTER: 60, RESTRICT_AFTER: 60,  // 진행성: 물린 뒤 60분 첫 증상, 다시 60분 뒤 이동 제한
   NOISE_SPAWN: 5, MAX_ZOMBIES: 2,
 };
@@ -82,7 +93,7 @@ export const clockOf = (t) => (T0 + t) % 1440;                  // 그날 0시�
 export const dayOf = (t) => Math.floor((T0 + t) / 1440) + 1;    // 며칠째
 export const tAt = (day, h) => (day - 1) * 1440 + h * 60 - T0;  // day일째 h시의 t
 export const isDay = (t) => { const h = clockOf(t) / 60; return h >= 6 && h < 18; };
-const SIZE = { jug: 2, note: 0, result: 0, pass: 0, key: 0 };
+const SIZE = { jug: 2, note: 0, result: 0, pass: 0, key: 0, extinguisher: 2 };
 const FAR = new Set(['checkpoint-market', 'checkpoint-pump']);
 export const isFar = (a, b) => FAR.has([a, b].sort().join('-'));
 const HELPABLE = new Set(['search', 'fill', 'fixRadio', 'build']);
@@ -131,6 +142,8 @@ export const PERCEIVE = {
   fightLose:    P({ self: 'self', same: 'see', glass: 'see', door: 'hear', near: 'hear', radio: 'radio' }),
   dodgeFail:    P({ self: 'self', same: 'see', glass: 'see' }),
   pushFail:     P({ self: 'self', same: 'see' }),
+  weaponBroke:  P({ self: 'self', same: 'see' }),
+  spray:        P({ self: 'self', same: 'see', glass: 'see', near: 'hear' }),
   zDown:        P({ self: 'self', same: 'see', glass: 'see', door: 'hear', near: 'hear' }),
   push:         P({ self: 'self', same: 'see', glass: 'see' }),
   cover:        P({ self: 'self', same: 'see' }),
@@ -255,6 +268,9 @@ export function createGame(seed, now, opts = {}) {
   addItem(s, 'blanket', { zone: pickOne(s, ['eaves', 'checkpoint']) }, { hidden: { ren: 1, akechi: 1 } });
   addItem(s, 'food', { zone: 'checkpoint' }, { hidden: { ren: 1, akechi: 1 } });
   addItem(s, 'plank', { zone: 'roof' }, { hidden: { ren: 2, akechi: 2 } });
+  addItem(s, 'umbrella', { zone: 'eaves' }, { hidden: { ren: 1, akechi: 1 }, data: { dur: CFG.WEAPONS.umbrella.dur } });
+  addItem(s, 'pipe', { zone: 'roof' }, { hidden: { ren: 2, akechi: 2 }, data: { dur: CFG.WEAPONS.pipe.dur } });
+  addItem(s, 'extinguisher', { zone: 'checkpoint' }, { hidden: { ren: 2, akechi: 1 }, data: { dur: CFG.WEAPONS.extinguisher.dur } });
   addItem(s, 'water', { zone: pickOne(s, ['checkpoint', 'roof']) }, { hidden: { ren: 1, akechi: 1 } });
   s.keyAt = keyAt;
   // 일정
@@ -543,6 +559,7 @@ function fire(s, ev) {
       break;
     case 'morning': morning(s); break;
     case 'gateOpen':
+      { const pool = CFG.WEAPON_DAILY, kind = pool[Math.floor(rng(s) * pool.length)]; addItem(s, kind, { zone: rng(s) < 0.6 ? 'market' : 'pump' }, { hidden: { ren: 1, akechi: 1 }, data: { dur: CFG.WEAPONS[kind].dur } }); }
       s.checkpointOpen = true; s.regOpen = true;
       for (const r of ROLES) { s.players[r].passed = false; log(s, r, 'pa', 'paGateOpen', {}); }
       break;
@@ -740,10 +757,27 @@ function stepZombie(s, z) {
 }
 
 // 맞서기 승산: 혼자·멀쩡한 상대면 반반 아래, 밀어내 비틀거리게 하거나 둘이 붙으면 올라간다
+// 가방에서 가장 좋은 무기(맞서기용 / 밀어내기용)
+export function weaponOf(s, r, use = 'fight') {
+  let best = null, bv = -1;
+  for (const i of bagOf(s, r)) {
+    const W = CFG.WEAPONS[i.kind]; if (!W) continue;
+    const val = use === 'fight' ? W.fight || 0 : W.push ? 1 : 0;
+    if (val > bv && val > 0) { best = i; bv = val; }
+  }
+  return best;
+}
+function wear(s, r, it) {
+  if (!it) return;
+  it.data = it.data || { dur: CFG.WEAPONS[it.kind].dur };
+  it.data.dur = (it.data.dur ?? CFG.WEAPONS[it.kind].dur) - 1;
+  if (it.data.dur <= 0) { delete s.items[it.id]; emit(s, 'weaponBroke', r, s.players[r].zone, { item: it.kind }); }
+}
 export function fightWin(s, r, z) {
   const p = s.players[r], o = s.players[other(r)];
   let w = CFG.FIGHT_WIN;
   if (z.st === 'stun') w += CFG.FIGHT_STUN;
+  { const wp = weaponOf(s, r, 'fight'); if (wp) w += CFG.WEAPONS[wp.kind].fight; }
   if (o.zone === p.zone && !o.dead && o.task && o.task.kind === 'fight') w += CFG.FIGHT_PAIR;
   if (p.stamina < 30) w -= CFG.LOWSTAM;
   if (!isDay(s.t) && ZONES[p.zone].outside && !hasKind(s, r, 'light')) w -= CFG.FIGHT_DARK;
@@ -827,7 +861,7 @@ function complete(s, r, t) {
           const lit = hasKind(s, r, 'light');
           if (rng(s) < CFG.UNDER_DARK[lit ? 1 : 0]) { emit(s, 'underDark', r, to, { lit }); spawnZombie(s, to, { force: true }); const zz = zombieIn(s, to); if (zz) { zz.st = 'approach'; zz.until = s.t + 0.3; } }
           const ck = 'underCache_' + dayOf(s.t) + '_' + to;
-          if (!s.flags[ck]) { s.flags[ck] = true; const pool = ['suppressant', 'kit', 'battery']; const kind = pool[Math.floor(rng(s) * pool.length)]; addItem(s, kind, { zone: to }); log(s, r, 'self', 'underCache.self', { item: kind }); }
+          if (!s.flags[ck]) { s.flags[ck] = true; const pool = ['suppressant', 'kit', 'battery', 'bat']; const kind = pool[Math.floor(rng(s) * pool.length)]; addItem(s, kind, { zone: to }, CFG.WEAPONS[kind] ? { data: { dur: CFG.WEAPONS[kind].dur } } : {}); log(s, r, 'self', 'underCache.self', { item: kind }); }
         }
       } else if (t.data.route) {
         if (s.routes[t.data.route] === 'crowd') {
@@ -952,19 +986,22 @@ function complete(s, r, t) {
       break;
     case 'fight': {
       const z = zombieIn(s, p.zone);
+      const wp = weaponOf(s, r, 'fight'), W = wp ? CFG.WEAPONS[wp.kind] : null;
       spend(p, CFG.COST.fight);
-      addNoise(s, p.zone, 2);
-      if (z && rng(s) >= fightWin(s, r, z)) {
+      addNoise(s, p.zone, Math.max(0.5, 2 + (W ? W.noise : 0)));
+      const winP = z ? fightWin(s, r, z) : 1;
+      if (z && wp) wear(s, r, wp);
+      if (z && rng(s) >= winP) {
         // 밀렸다: 붙잡힌 채 반격당하고, 좀비는 곧 다시 달려든다
-        emit(s, 'fightLose', r, p.zone, { zo: z.zo, of: z.of });
-        wound(s, p, z, CFG.FIGHT_BITE);
+        emit(s, 'fightLose', r, p.zone, { zo: z.zo, of: z.of, item: wp ? wp.kind : null });
+        wound(s, p, z, Math.max(0.05, CFG.FIGHT_BITE - (W ? W.keep : 0)));
         z.st = 'approach'; z.until = s.t + 0.5;
       } else if (z) {
         z.hp -= 1;
-        if (z.hp > 0) { emit(s, 'zHit', r, p.zone, { zo: z.zo, of: z.of }); z.st = 'stun'; z.until = s.t + CFG.STUN; }
+        if (z.hp > 0) { emit(s, 'zHit', r, p.zone, { zo: z.zo, of: z.of, item: wp ? wp.kind : null }); z.st = 'stun'; z.until = s.t + CFG.STUN; }
         if (z.hp <= 0) {
           delete s.zombies[z.id];
-          emit(s, 'zDown', r, p.zone, { zo: z.zo, of: z.of });
+          emit(s, 'zDown', r, p.zone, { zo: z.zo, of: z.of, item: wp ? wp.kind : null });
           if (o.task && o.task.kind === 'fight' && o.zone === p.zone) o.task = null;
           for (const q of ROLES) { const pp = s.players[q]; if (pp.zone === p.zone) { pp.stance = null; if (pp.autoGuard && pp.task) pp.task.paused = false; pp.autoGuard = false; } }
         }
@@ -975,9 +1012,11 @@ function complete(s, r, t) {
       const z = zombieIn(s, p.zone);
       spend(p, CFG.COST.push);
       addNoise(s, p.zone, 1);
-      if (z && p.stamina < 30 && rng(s) < CFG.PUSH_FAIL) { emit(s, 'pushFail', r, p.zone, { zo: z.zo, of: z.of }); break; }
+      const pw = weaponOf(s, r, 'push');
+      if (z && !pw && p.stamina < 30 && rng(s) < CFG.PUSH_FAIL) { emit(s, 'pushFail', r, p.zone, { zo: z.zo, of: z.of }); break; }
       if (z) {
-        z.st = 'stun'; z.until = s.t + CFG.STUN;
+        z.st = 'stun'; z.until = s.t + CFG.STUN + (pw ? CFG.WEAPONS[pw.kind].stun : 0);
+        if (pw) { addNoise(s, p.zone, CFG.WEAPONS[pw.kind].noise); emit(s, 'spray', r, p.zone, { zo: z.zo, of: z.of }); wear(s, r, pw); }
         emit(s, 'push', r, p.zone, { zo: z.zo, of: z.of });
         for (const q of ROLES) { const pp = s.players[q]; if (pp.zone === p.zone) { pp.stance = null; if (pp.autoGuard && pp.task) pp.task.paused = false; pp.autoGuard = false; } }
       }
@@ -1946,6 +1985,7 @@ function itemView(s, i, viewer) {
   if (i.kind === 'result' && i.loc.bag === viewer) v.res = i.data.res, v.owner = i.data.owner;
   if (i.kind === 'pass' && i.data) v.name = i.data.name;
   if (i.kind === 'jug') v.left = i.data.left;
+  if (CFG.WEAPONS[i.kind]) v.dur = i.data && i.data.dur != null ? i.data.dur : CFG.WEAPONS[i.kind].dur;
   if (i.kind === 'radio' && i.data && i.data.charge != null) v.charge = i.data.charge;
   return v;
 }
@@ -1960,7 +2000,7 @@ export function viewFor(s, r, sinceLog = 0) {
     floor: itemsAt(s, p.zone).filter((i) => i.found || i.hiddenBy === r).map((i) => ({ ...itemView(s, i, r), hid: !i.found })),
     box: p.zone === 'dorm' ? boxItems(s).map((i) => itemView(s, i, r)) : null,
     sill: ZONES[p.zone].sill && !s.base.boards ? sillItems(s).map((i) => itemView(s, i, r)) : null,
-    zombie: zb ? { zo: zb.zo, of: zb.of, hp: zb.hp, maxHp: zb.maxHp || zb.hp, odds: fightWin(s, r, zb), st: zb.st, left: zb.st === 'warn' || zb.st === 'approach' || zb.st === 'stun' ? Math.max(0, zb.until - s.t) : null } : null,
+    zombie: zb ? { zo: zb.zo, of: zb.of, hp: zb.hp, maxHp: zb.maxHp || zb.hp, odds: fightWin(s, r, zb), weapon: (weaponOf(s, r, 'fight') || {}).kind || null, pusher: (weaponOf(s, r, 'push') || {}).kind || null, st: zb.st, left: zb.st === 'warn' || zb.st === 'approach' || zb.st === 'stun' ? Math.max(0, zb.until - s.t) : null } : null,
     noise: Math.round(s.noise[p.zone] * 10) / 10,
     door: p.zone === 'dorm' || p.zone === 'roof' ? { locked: s.roofDoor.locked } : null,
     gate: p.zone === 'checkpoint' || p.zone === 'dorm' ? { open: s.checkpointOpen } : null,

@@ -638,7 +638,7 @@ const ui = {
       const st = z.st === 'warn' ? `달려든다 — ${secs(z.left)}초` : z.st === 'stun' ? `비틀거린다 · ${secs(z.left)}초` : z.st === 'approach' ? `다가온다 · ${secs(z.left)}초` : '서성인다';
       const bs = [];
       if (m.mobile && !m.heavy && z.st !== 'stun') bs.push(cmd('밀어내기', 'push'));
-      if (m.mobile && !m.heavy) bs.push(cmd(`맞서기 · ${oddsWord(z.odds)}`, 'fight', z.odds < 0.5 ? ' risk' : ' inv'));
+      if (m.mobile && !m.heavy) bs.push(cmd(`맞서기${z.weapon ? `(${iname(z.weapon)})` : ''} · ${oddsWord(z.odds)}`, 'fight', z.odds < 0.5 ? ' risk' : ' inv'));
       bs.push(btn('물러나기', 'data-sheet="map"'));
       out.push(card(esc(zlabel(z)), esc(st), `${z.of ? `<p class="dim">${esc(NAMES[z.of])}였던 것.</p>` : ''}${(z.maxHp || 1) > 1 ? `<p class="dim">단단하다. 두 번 쓰러뜨려야 한다${z.hp < z.maxHp ? ' — 한 번 남았다' : ''}.</p>` : ''}<p class="dim">밀어내서 비틀거릴 때 맞서면 승산이 오른다. 둘이 같이 맞서도 오른다.</p>`, bs, ' zom' + (z.st === 'warn' ? ' warn' : ''), `<span class="av z">${icon('person', 18)}</span>`));
     }
@@ -729,7 +729,7 @@ const ui = {
     } else if (z && z.st === 'warn') {
       danger = true;
       const parts = v.zone.exits.filter((e) => !e.why && !e.far).map((e) => `<button class="btn inv" data-move="${e.to}">${esc(j(ZONE_TEXT[e.to].short, '으로'))}</button>`);
-      if (m.mobile && !m.heavy) parts.push('<button class="btn" data-cmd="push">밀어내기</button>', `<button class="btn${z.odds < 0.5 ? ' risk' : ''}" data-cmd="fight">맞서기 · ${oddsWord(z.odds)}</button>`);
+      if (m.mobile && !m.heavy) parts.push(`<button class="btn" data-cmd="push">밀어내기${z.pusher ? `(${esc(iname(z.pusher))})` : ''}</button>`, `<button class="btn${z.odds < 0.5 ? ' risk' : ''}" data-cmd="fight">맞서기${z.weapon ? `(${esc(iname(z.weapon))})` : ''} · ${oddsWord(z.odds)}</button>`);
       if (v.partner.rel === 'same' && m.mobile) parts.push(`<button class="btn" data-cmd="cover">${esc(NAMES[v.partner.role])} 엄호</button>`);
       if (m.task && m.autoGuard) parts.push(`<button class="btn risk" data-cmd="persist">${esc(TASK_TEXT[m.task.kind])} 계속 (위험)</button>`);
       const stance = m.stance === 'cover' ? '앞을 막아섰다 — 대신 노출된다.' : m.stance === 'persist' ? '하던 일을 계속한다 — 노출된다.' : !(m.task && ['fight', 'push', 'retreat', 'move'].includes(m.task.kind)) ? (m.stamina < 30 ? '가만히 있으면 몸을 낮춰 피한다 — 지쳐서 못 피할 수도 있다.' : '가만히 있으면 몸을 낮춰 피한다. 맞서다 밀리면 물릴 수 있다.') : '';
@@ -965,6 +965,7 @@ const ui = {
       if (it.kind === 'result' && it.res) desc = `${NAMES[it.owner]}: ${RESULT_TEXT[it.res]}`;
       if (it.kind === 'pass' && it.name) desc = `${NAMES[it.name]} 명의`;
       if (it.kind === 'radio' && it.charge != null) desc = `충전 ${it.charge}%${it.charge <= 0 ? ' · 꺼짐 — 배터리나 충전기' : ''}`;
+      if (it.dur != null) desc = `${desc} · 남은 ${it.dur}번`;
       if (it.kind === 'jug') desc = `물 ${it.left}/${v.cfg.jugCap}${it.left >= v.cfg.heavy ? ' · 무거움' : ''} · 가방 2칸`;
       if (it.hid) desc = '(내가 숨겨 둔 것) ' + desc;
       const open = this.sel === it.id;

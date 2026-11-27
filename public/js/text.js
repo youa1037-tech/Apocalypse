@@ -107,6 +107,11 @@ export const ITEM_TEXT = {
   jug: { name: '물통', desc: '최대 물 6번 분량. 가방 2칸. 4번 분량을 넘으면 무겁다.' },
   result: { name: '진단 결과지', desc: '' },
   note: { name: '쪽지', desc: '' },
+  umbrella: { name: '장우산', desc: '맞서기 승산 +10%. 거리를 둬서 밀려도 덜 물린다. 금방 휜다.' },
+  knife: { name: '주방칼', desc: '맞서기 승산 +15%. 조용하다. 대신 바짝 붙어야 해서 밀리면 더 물린다.' },
+  pipe: { name: '쇠파이프', desc: '맞서기 승산 +20%. 시끄럽다.' },
+  bat: { name: '금속 배트', desc: '맞서기 승산 +25%. 시끄럽다. 오래 버틴다.' },
+  extinguisher: { name: '소화기', desc: '밀어내기가 헛돌지 않고 오래 비틀거리게 한다. 가방 2칸. 세 번 쓰면 빈다.' },
 };
 
 export const RESULT_TEXT = { clear: '물림 흔적 없음', prog: '진행성', non: '비진행성' };
@@ -619,6 +624,12 @@ export const LOG = {
   'bite.near': '어딘가에서 몸싸움하는 소리와 짧은 신음.',
   'bite.radio': '무전 너머로 짧은 비명과 잡음.',
   'fight.self': '맞선다.',
+  'weaponBroke.self': (a) => `${j(ITEM_TEXT[a.item] ? ITEM_TEXT[a.item].name : a.item, '이')} 못 쓰게 됐다.`,
+  'weaponBroke.same': (a) => `${a.who}의 ${j(ITEM_TEXT[a.item] ? ITEM_TEXT[a.item].name : a.item, '이')} 부러진다.`,
+  'spray.self': (a) => `소화기를 뿌린다. 하얀 가루 속에서 ${zlabel(a)}가 허우적댄다.`,
+  'spray.same': '{who:이} 소화기를 뿌린다. 하얀 가루가 번진다.',
+  'spray.glass': '창 너머가 하얗게 뿌예진다.',
+  'spray.near': '치익— 뭔가 뿜어지는 소리.',
   'fightLose.self': (a) => `밀렸다! ${zlabel(a)}가 팔을 붙들고 늘어진다.`,
   'fightLose.same': (a) => `${j(a.who, '이')} 밀린다! ${zlabel(a)}가 달라붙는다.`,
   'fightLose.glass': '창 너머에서 누군가 밀려 넘어진다.',
@@ -636,7 +647,7 @@ export const LOG = {
   'fight.near': '부딪히는 소리.',
   'zDown.self': (a) => `반격! ${zlabel(a)}가 쓰러져 움직이지 않는다.`,
   'zDown.same': (a) => `${a.who}의 반격! ${zlabel(a)}가 쓰러졌다.`,
-  'zHit.self': (a) => `반격! ${zlabel(a)}가 비틀거린다. 아직 서 있다.`,
+  'zHit.self': (a) => `${a.item ? `${j(ITEM_TEXT[a.item].name, '으로')} ` : ''}반격! ${zlabel(a)}가 비틀거린다. 아직 서 있다.`,
   'zHit.same': (a) => `${a.who}의 반격! ${zlabel(a)}가 비틀거린다.`,
   'zHit.glass': '창 너머에서 무언가 휘청인다.',
   'zHit.near': '둔탁한 소리.',
