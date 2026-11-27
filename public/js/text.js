@@ -193,6 +193,19 @@ export const SCENE_TEXT = {
       a3: '아케치가 손을 뗀다.',
       a4: '그럼 왜 물어?',
       a5: '어제도 네가 먼저 손을 뗐나 해서.',
+      a5p: '어제는 네가 뿌리쳤잖아. 그래서 물어본 거야.',
+      r1: '르블랑에선 앞치마를 이렇게 반듯하게 개나?',
+      r2: '아니. 네가 갰잖아.',
+      r3: '아케치가 개던 손을 멈춘다.',
+      r4: '어제는 네가 먼저 손을 뻗었잖아.',
+      rt1: '수신기 방송, 끝 문장만 음질이 달랐어.',
+      rt2: '재검사에서 떨어지면 명단에서 뺀대. 그 문장만 나중에 붙인 것 같았어.',
+      rt3: '…너도 그걸 들었구나.',
+      ro1: '네 이름이 거기 혼자 적히는 게 싫었어.',
+      ro2: '이유가 그거야? …너답네.',
+      f1: '렌은 대답 대신 앞치마 끈만 만지작거린다.',
+      f2: '아케치가 끈을 가져가 허리 뒤로 돌린다.',
+      f3: '대답 안 해도 돼. 매듭은 내가 묶을게.',
       b1: '젖은 채로 두면 못 쓰게 돼.',
       b2: '…고마워.',
       tell1: '아케치가 어젯밤 수신기에서 들은 방송을 처음부터 다시 읊는다.',
@@ -214,7 +227,8 @@ export const SCENE_TEXT = {
     },
     opts: {
       fold: '앞치마를 개서 건넨다', leave: '그냥 둔다', tell: '어제 들은 방송을 들려준다', tie: '앞치마를 다시 펴서 렌에게 두른다',
-      hand: '갠 앞치마를 손에 얹어 준다', own: '자기 말로 이유를 댄다', ask: '더 묻는다', letTie: '매듭을 묶게 둔다', thanks: '고맙다고 한다',
+      hand: '갠 앞치마를 손에 얹어 준다', own: '자기 말로 이유를 댄다',
+      renTell: '들은 방송을 말한다', renOwn: '자기 말로 이유를 댄다', fidget: '대답 대신 앞치마 끈을 만지작거린다', ask: '더 묻는다', letTie: '매듭을 묶게 둔다', thanks: '고맙다고 한다',
       understood: '“그래서 막았구나.”', quiet: '아무 말도 하지 않는다', silent: '대답 대신 매듭을 조인다',
     },
   },
@@ -321,6 +335,9 @@ export const ENDING_TEXT = {
     iWent: '뒷유리 너머로 대피소 지붕이 작아졌다. 창에 손바닥을 댔다. 저쪽에서 손을 들어 주지는 않았다. 아케치다운 배웅이었다.',
     iStayed: '버스가 떠났다. 창가에 앉은 얼굴이 이쪽을 보지 않으려 애쓰는 게 보였다. 그거면 됐다. 셔터를 반만 내린 가게 하나쯤, 누가 지켜야 하니까.',
     bothStayed: '엔진 소리가 멀어졌다. 둘 다 숙직실 바닥에 앉아 그 소리가 다 사라질 때까지 기다렸다. 아케치가 먼저 웃었다. 이유는 묻지 않았다.',
+    stayedApart: (c) => `${zn(c, 'ren')}에서 엔진 소리가 멀어지는 걸 들었다. 소리가 다 끊긴 뒤에도 아케치는 오지 않았다. 아마 그도 어딘가에서 같은 소리를 듣고 있었을 것이다.`,
+    iRefused: '검사원이 고개를 저었다. 아무 말 없이 줄에서 빠졌다. 소매 밑의 자국이 그제야 아프기 시작했다.',
+    iStayedAway: (c) => `${zn(c, 'ren')}에서 엔진 소리만 들었다. 그 차에 누가 탔는지는, 돌아와서 빈자리를 보고서야 알았다.`,
     theyTurned: '그가 마지막으로 낸 소리는 이름이 아니었다. 그래도 렌은 그걸 대답이라고 여기기로 했다.',
     iTurned: '마지막으로 기억나는 건 손목을 붙잡던 손의 온도다. 차가웠는지 따뜻했는지는, 이제 알 수 없다.',
     theyDied: '새벽이 왔다. 다섯 시는 둘이 함께 세던 숫자였다. 혼자 세니 너무 짧았다.',
@@ -332,6 +349,9 @@ export const ENDING_TEXT = {
     iWent: '돌아보지 않았다. 돌아보면 내릴 것 같아서. 명단의 이름 두 줄 중 한 줄이 먼저 지워지는 걸 상상하지 않으려고 창밖만 봤다.',
     iStayed: '버스 꽁무니가 모퉁이를 돌았다. 잘 됐다. 원래 혼자 남는 쪽이 익숙하다. 그런데 왜 이렇게 조용한지 모르겠다.',
     bothStayed: '바보 같은 선택이었다. 둘 다 알고 있었다. 그래서 웃음이 났다. 다섯 시가 지나도 해는 그냥 떴다.',
+    stayedApart: (c) => `${zn(c, 'akechi')}에서 엔진 소리를 들었다. 같은 소리를 렌도 들었을까. 확인하러 가지는 않았다. 아직은.`,
+    iRefused: '재검사에서 걸렸다. 놀라지 않았다. 줄에서 빠지면서, 렌 쪽은 보지 않았다.',
+    iStayedAway: (c) => `${zn(c, 'akechi')}에서 차가 떠나는 소리를 들었다. 창가에 앉은 얼굴은 못 봤다. 보지 않아서 다행이라고 생각하기로 했다.`,
     theyTurned: '“…렌.” 대답은 신음이었다. 끝까지 솔직해지지 못한 건 결국 이쪽이었다.',
     iTurned: '이름을 부르려고 했다. 입에서 나온 건 다른 소리였다. 그 애가 울지 않기를, 그것만은 아직 바랄 수 있었다.',
     theyDied: '경쟁자가 사라진 세상은 생각보다 시시했다. 그걸 확인하려고 살아남은 건 아니었는데.',
@@ -339,8 +359,15 @@ export const ENDING_TEXT = {
     bothGone: '누구의 이름도 명단에 남지 않았다. 처음부터 그 편이 나았을지도 모른다.',
   },
 };
+const zn = (c, r) => { const z = c.flags && c.flags.busZones ? c.flags.busZones[r] : c.players[r].zone; return ZONE_TEXT[z] ? ZONE_TEXT[z].name : '대피소'; };
+// 결말 문단(문장이 함수면 그 판의 자리를 넣어 쓴다)
+export function endingText(c, me) { const t = ENDING_TEXT[me][endingKey(c, me)]; return typeof t === 'function' ? t(c) : t || ''; }
 export function endingKey(c, me) {
   const P = c.players, a = P[me].fate, b = P[me === 'ren' ? 'akechi' : 'ren'].fate;
+  const F = c.flags || {}, Z = F.busZones;
+  if (a === 'stayed' && F['boardFail_' + me]) return 'iRefused';
+  if (a === 'stayed' && b === 'boarded' && Z && Z[me] !== 'checkpoint') return 'iStayedAway';
+  if (a === 'stayed' && b === 'stayed' && Z && Z.ren !== Z.akechi) return 'stayedApart';
   const gone = (f) => f === 'dead' || f === 'turned';
   if (gone(a) && gone(b)) return 'bothGone';
   if (a === 'turned') return 'iTurned';
@@ -363,8 +390,9 @@ export function storyLines(f) {
     if (f.signOutcome === 'pulled') out.push(`${j(N(f.signBlocked.on), '은')} 뿌리치고 이름을 썼다.`);
     if (f.signOutcome === 'stopped') out.push('펜은 끝내 멈췄다.');
     if (f.broadcastShared) out.push('이튿날, 막은 이유(덧입힌 방송)를 들려주었다.');
-    else if (f.ownReason) out.push('이튿날, 아케치는 방송 대신 자기 말로 이유를 댔다.');
+    else if (f.ownReason) out.push(`이튿날, ${j(N(f.signBlocked.by), '은')} 방송 대신 자기 말로 이유를 댔다.`);
     else if (f.askedNoAnswer) out.push('이튿날 렌이 물었지만, 대답은 매듭이었다.');
+    else if (f.renSilent) out.push('이튿날 아케치가 되물었지만, 렌은 앞치마 끈만 만지작거렸다.');
     else out.push('막은 이유는 끝내 말하지 않았다.');
   }
   if (f.apronTied) out.push('앞치마는 다시 렌의 허리에 묶였다.');
@@ -412,7 +440,7 @@ export const LOG = {
   paRegOpen: '[안내] 지금부터 검문대에서 이송 접수를 받습니다.',
   // ★ 22:15 방송 — 앞부분은 수신기 근처면 저절로, 뒷부분은 끝까지 들어야
   bcastHead: '지직— [이송 안내] 이송 차량은 셋째 날 오전 다섯 시, 구립 체육관 앞… 접수는 검문대에서…',
-  bcastTail: '…접수자는 탑승 시 재검사를 받습니다. 재검사 불합격자는 명단에서 제외… 반복합니다—',
+  bcastTail: '…접수자는 탑승 시 재검사를 받습니다. ……재검사 불합격자는 명단에서 제외… 반복합니다—',
   'bcastCut.self': '방송이 끝났다. 끝부분을 놓쳤다.',
   'listen.self': '수신기에 귀를 댄다.',
   'listen.same': '{who:이} 수신기에 귀를 댄다.',
@@ -545,7 +573,7 @@ export const LOG = {
 
   // 무전·수신기 방송
   broadcast1: '지직— …지하 구간 일부 개방… 반복합니다, 지하 구간…',
-  'special.akechi0': '(끝부분만 음질이 다르다. ‘재검사 불합격자는 명단에서 제외’ — 이 문장만 나중에 덧입혔다. 명단에 이름을 올리면, 누군가 그 이름으로 사람을 골라낼 수 있다.)',
+  'special.akechi0': '(재검사 문장 직전에 잡음이 한 번 뚝 끊겼다. 앞부분과 음질이 다르다.)',
   'special.akechi1': '(송출 위치가 구청 비상망이 아니다. 지하역 쪽 중계기 잡음이 섞여 있다.)',
 
   // 이동

@@ -1,5 +1,5 @@
 import { createGame, applyCommand, advance, viewFor, ITEM_USE, CFG, archiveOf, revive } from './engine.js';
-import { SCENE_TEXT, sceneLine, storyLines, secretLine, ENDING_TEXT, endingKey, PROLOGUE, ROUTE_TEXT, MARK_TEXT, FEAT_TEXT, STATUS_TEXT, STATUS_DESC, AVATARS, TACHIE, BUILD_TEXT, QUESTIONS, OFFER_TEXT, zlabel, NAMES, ZONE_TEXT, ITEM_TEXT, TASK_TEXT, SIGNAL_TEXT, PARTNER_TEXT, RESULT_TEXT, RESULT_CARD, fmt, j, iname, zname } from './text.js';
+import { SCENE_TEXT, sceneLine, storyLines, secretLine, ENDING_TEXT, endingKey, endingText, PROLOGUE, ROUTE_TEXT, MARK_TEXT, FEAT_TEXT, STATUS_TEXT, STATUS_DESC, AVATARS, TACHIE, BUILD_TEXT, QUESTIONS, OFFER_TEXT, zlabel, NAMES, ZONE_TEXT, ITEM_TEXT, TASK_TEXT, SIGNAL_TEXT, PARTNER_TEXT, RESULT_TEXT, RESULT_CARD, fmt, j, iname, zname } from './text.js';
 import { draw, icon, background, W, H } from './scene.js';
 import { TutorialHost, STEPS } from './tutorial.js';
 import * as SFX from './sfx.js';
@@ -1170,11 +1170,11 @@ const ui = {
     const rtabs = this.host.local ? `<div class="ptabs">${['ren', 'akechi'].map((r) => `<button class="tab${r === this.role ? ' on' : ''}" data-role="${r}">${NAMES[r]} 화면</button>`).join('')}</div>` : '';
     if (stage === 1) {
       // 1단계: 내 기억 한 문단만, 정적 속에
-      html = `<div class="stp">STEP 01 / 03 · 내 기억</div>${head}<div class="endp solo"><p>${esc(ENDING_TEXT[v.role][ek])}</p></div><div class="row"><button class="btn inv" data-act="resNext">다음</button></div>`;
+      html = `<div class="stp">STEP 01 / 03 · 내 기억</div>${head}<div class="endp solo"><p>${esc(endingText(c, v.role))}</p></div><div class="row"><button class="btn inv" data-act="resNext">다음</button></div>`;
     } else if (stage === 2) {
       // 2단계: 한 줄 남기고, 내 비밀 시트를 혼자 본 뒤, 펼칠지 고른다
       const wait = RV.me ? `<div class="pline"><span>${RV.me === 'open' ? '펼칠 준비를 했다' : '내 시트는 덮어 두었다'} · ${esc(NAMES[pr])}${RV.partner ? '도 준비했다' : '를 기다리는 중'}</span></div>` : '';
-      html = `<div class="stp">STEP 02 / 03 · 한 줄과 비밀 시트</div>${head}<div class="endp"><p>${esc(ENDING_TEXT[v.role][ek])}</p></div>
+      html = `<div class="stp">STEP 02 / 03 · 한 줄과 비밀 시트</div>${head}<div class="endp"><p>${esc(endingText(c, v.role))}</p></div>
       <div class="sh">한 줄 남기기</div>
       <form id="epiForm" class="say"><input id="epi" maxlength="80" placeholder="${esc(c.epilogue[v.role] || '이 판에 남길 한 줄 (선택)')}"><button class="btn">남기기</button></form>
       <div class="sh">이번 판에서 간직할 장면 (마지막 날)</div>
@@ -1184,7 +1184,7 @@ const ui = {
       ${wait || `<div class="row wrap"><button class="btn" data-cmd='${esc(JSON.stringify({ type: 'reveal', open: false }))}'>내 건 덮어 둔다</button><button class="btn inv" data-cmd='${esc(JSON.stringify({ type: 'reveal', open: true }))}'>비밀 시트 함께 펼치기</button></div>`}`;
     } else {
       // 3단계: 같은 순간에 펼친다
-      const endHtml = `<div class="endp"><p>${esc(ENDING_TEXT[v.role][ek])}</p>${RV.partnerOpen ? `<p class="endo"><b>${esc(NAMES[pr])}의 기억</b> ${esc(ENDING_TEXT[pr][pek])}</p>` : ''}</div>`;
+      const endHtml = `<div class="endp"><p>${esc(endingText(c, v.role))}</p>${RV.partnerOpen ? `<p class="endo"><b>${esc(NAMES[pr])}의 기억</b> ${esc(endingText(c, pr))}</p>` : ''}</div>`;
       const secHtml = `<div class="sh">비밀 시트</div>${secRow(v.role)}${secRow(pr) || `<p class="dim">${esc(NAMES[pr])}는 자기 시트를 덮어 두었다.</p>`}`;
       const storyHtml = story.length ? `<div class="sh">그날 밤의 일</div><div class="story">${story.map((l) => `<p>${esc(l)}</p>`).join('')}</div>` : '';
       const pl = c.partnerLog;
@@ -1211,8 +1211,8 @@ async function saveResultImage(ui) {
   const Wd = 720, pad = 44, fs = 20, lh = 32;
   const cv = document.createElement('canvas'); const g = cv.getContext('2d');
   const e = c.end || {}, RV = c.reveal || {};
-  const blocks = [['h', '새벽 다섯 시'], ['s', `${e.day || 1}일째 — ${RESULT_CARD.ends[e.reason] || RESULT_CARD.title}`], ['gap'], ['p', ENDING_TEXT[role][ek]]];
-  if (RV.partnerOpen) blocks.push(['gap'], ['q', `${NAMES[pr]}의 기억 — ${ENDING_TEXT[pr][pek]}`]);
+  const blocks = [['h', '새벽 다섯 시'], ['s', `${e.day || 1}일째 — ${RESULT_CARD.ends[e.reason] || RESULT_CARD.title}`], ['gap'], ['p', endingText(c, role)]];
+  if (RV.partnerOpen) blocks.push(['gap'], ['q', `${NAMES[pr]}의 기억 — ${endingText(c, pr)}`]);
   blocks.push(['gap']);
   for (const q of ['ren', 'akechi']) blocks.push(['p', `${NAMES[q]} · ${RESULT_CARD.fate[c.players[q].fate]}${c.epilogue[q] ? `  “${c.epilogue[q]}”` : ''}`]);
   if (story.length) { blocks.push(['gap'], ['b', '그날 밤의 일']); for (const l of story) blocks.push(['p', l]); }

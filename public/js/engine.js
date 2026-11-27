@@ -40,7 +40,7 @@ export const CFG = {
   LIGHTS_OUT: 180,         // 01:00 소등·불침번 교대
   BROADCASTS: [190],       // 01:10 지하 구간 방송
   BCAST_EARLY: 15,         // 22:15 수신기 이송 안내 방송(끝까지 들어야 뒷부분을 들음)
-  BCAST_LEN: 4,            // 방송이 나오는 시간(게임 분)
+  BCAST_LEN: 8,            // 방송이 나오는 시간(게임 분) — '반복합니다' 두 번
   LISTEN: 3,               // 끝까지 듣는 데 드는 시간
   REG_OPEN: 20,            // 22:20 이송 접수 시작
   ZOMBIE1: [16, 20],       // 첫 조우: 방송 무렵 처마 쪽
@@ -612,6 +612,7 @@ function fire(s, ev) {
       break;
     case 'busGone': {
       s.busHere = false;
+      s.flags = s.flags || {}; s.flags.busZones = { ren: s.players.ren.zone, akechi: s.players.akechi.zone };
       const gone = ROLES.filter((r) => s.players[r].boarded);
       const st = stockCounts(s);
       if (gone.length) { feat(s, 'boarded', { who: gone, water: st.water, food: st.food }); endRun(s, 'bus'); }
@@ -1102,7 +1103,7 @@ function complete(s, r, t) {
     }
     case 'board':
       if (!s.busHere) return;
-      if (p.bite) { emit(s, 'boardFail', r, p.zone, {}); break; }
+      if (p.bite) { s.flags = s.flags || {}; s.flags['boardFail_' + r] = true; emit(s, 'boardFail', r, p.zone, {}); break; }
       p.boarded = true; p.task = null;
       emit(s, 'board', r, p.zone, {});
       break;
@@ -1680,8 +1681,23 @@ const SCENES = {
   apron: {
     beats: {
       open: { lines: ['open'], choice: { role: 'akechi', opts: [['fold', 'fold'], ['leave', 'leaveIt']] } },
-      fold: { lines: (s) => (s.flags.signBlocked ? ['a1', 'a2', 'a3', 'a4', 'a5'] : ['b1', 'b2']),
-        choice: (s) => (s.flags.signBlocked ? { role: 'akechi', opts: [s.players.akechi.listened ? ['tell', 'tell'] : ['own', 'own'], ['tie', 'tie']] } : { role: 'akechi', opts: [['tie', 'tieB'], ['hand', 'handOnly']] }) },
+      fold: {
+        // 아케치가 막았다 → 렌이 묻는다 / 렌이 막았다 → 아케치가 되묻는다 / 아무도 안 막았다
+        lines: (s) => {
+          const B = s.flags.signBlocked;
+          if (!B) return ['b1', 'b2'];
+          if (B.by === 'ren') return ['r1', 'r2', 'r3', 'r4'];
+          return ['a1', 'a2', 'a3', 'a4', s.flags.signOutcome === 'pulled' ? 'a5p' : 'a5'];
+        },
+        choice: (s) => {
+          const B = s.flags.signBlocked;
+          if (!B) return { role: 'akechi', opts: [['tie', 'tieB'], ['hand', 'handOnly']] };
+          if (B.by === 'ren') return { role: 'ren', opts: [s.players.ren.listened ? ['renTell', 'renTell'] : ['renOwn', 'renOwn'], ['fidget', 'fidget']] };
+          return { role: 'akechi', opts: [s.players.akechi.listened ? ['tell', 'tell'] : ['own', 'own'], ['tie', 'tie']] };
+        } },
+      renTell: { lines: ['rt1', 'tellTail', 'rt2', 'rt3'], set: { broadcastShared: true, renExplained: true } },
+      renOwn: { lines: ['ro1', 'ro2'], set: { ownReason: true } },
+      fidget: { lines: ['f1', 'f2', 'f3'], set: { renSilent: true, apronTied: true } },
       tell: { lines: ['tell1', 'tellTail', 'tell2'], set: { broadcastShared: true }, choice: { role: 'ren', opts: [['understood', 'understood'], ['quiet', 'quietEnd']] } },
       tie: { lines: ['tie1'], set: { apronTied: true }, choice: { role: 'ren', opts: [['ask', 'ask'], ['letTie', 'letTie']] } },
       tieB: { lines: ['tie1'], set: { apronTied: true }, choice: { role: 'ren', opts: [['thanks', 'thanks'], ['letTie', 'letTie']] } },
@@ -1740,7 +1756,7 @@ function sceneWho(s, sc, key, data) { return SCENE_SPEAKER[sc] && SCENE_SPEAKER[
 const resolveRole = (x, data) => (data && typeof data[x] === 'string' && (data[x] === 'ren' || data[x] === 'akechi') ? data[x] : x);
 // 각 줄을 누가 말하는지(없으면 서술)
 const SCENE_SPEAKER = {
-  apron: { own1: 'akechi', own2: 'akechi', a1: 'akechi', a2: 'ren', a4: 'ren', a5: 'akechi', b1: 'akechi', b2: 'ren', tell2: 'akechi', ask1: 'ren', thanks1: 'ren', thanks2: 'akechi', und1: 'ren', und2: 'akechi' },
+  apron: { r1: 'akechi', r2: 'ren', r4: 'akechi', rt1: 'ren', rt2: 'ren', rt3: 'akechi', ro1: 'ren', ro2: 'akechi', f3: 'akechi', a5p: 'akechi', own1: 'akechi', own2: 'akechi', a1: 'akechi', a2: 'ren', a4: 'ren', a5: 'akechi', b1: 'akechi', b2: 'ren', tell2: 'akechi', ask1: 'ren', thanks1: 'ren', thanks2: 'akechi', und1: 'ren', und2: 'akechi' },
   night2: { o1: 'akechi', o2: 'ren', al1: 'akechi', al2: 'akechi', rf1: 'ren', rf2: 'akechi', rf3: 'ren', yn1: 'ren', yn2: 'akechi', wy1: 'akechi', cf1: 'ren', cf2: 'akechi', yu1: 'ren', cs2: 'akechi', sg1: 'ren', sg2: 'akechi', st1: 'ren', st2: 'akechi' },
   lastMeal: { l1: 'chooser', l2: 'partner', w1: 'chooser', w2: 'partner', y1: 'chooser', y2: 'partner', s2: 'partner', s3: 'chooser', g1: 'chooser', g2: 'partner' },
   pen: { offerA: 'holder', offerB: 'holder', writeA: 'other', writeB: 'other', refuse1: 'other' },
