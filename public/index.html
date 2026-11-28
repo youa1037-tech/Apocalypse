@@ -1439,6 +1439,32 @@ body.tut .coach-target::after{
 #tutChapterBanner .tcb-tag{background:#1446E6;color:#fff;padding:2px 7px;font-size:11px;font-weight:700;border:1px solid #fff}
 #tutChapterBanner .tcb-title{font-size:14px;font-weight:700;color:#FDE68A}
 
+
+/* ── 장면 직접 누르기(핫스팟) ── */
+#hots{position:absolute;inset:0;pointer-events:none;z-index:2;overflow:hidden}
+.hs{position:absolute;pointer-events:auto;background:transparent;border:0;padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent;font-family:inherit}
+.hs .hsc{position:absolute;width:7px;height:7px;border-color:rgba(165,200,255,.8);border-style:solid;opacity:.65;transition:opacity .15s,transform .15s}
+.hs .hsc.tl{left:0;top:0;border-width:2px 0 0 2px}
+.hs .hsc.br{right:0;bottom:0;border-width:0 2px 2px 0}
+.hs .hsl{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);white-space:nowrap;font-size:10px;line-height:1;padding:3px 5px;background:rgba(5,8,15,.82);color:#DCEBFA;border:1px solid rgba(165,200,255,.55);opacity:0;transition:opacity .15s;pointer-events:none}
+.hs:hover .hsc,.hs:focus-visible .hsc{opacity:1;transform:scale(1.15)}
+.hs:hover .hsl,.hs:focus-visible .hsl,.hs.pressed .hsl{opacity:1}
+body:not(.hs-seen) .hs:not(.off) .hsl{opacity:.92}
+.hs.hot .hsc{border-color:#FDE68A;opacity:1;animation:hsPulse 1.1s steps(2) infinite}
+.hs.hot .hsl{opacity:1;color:#FDE68A;border-color:#FDE68A}
+.hs.danger .hsc{border-color:#FB7185}
+.hs.danger .hsl{color:#fff;background:#9F1239;border-color:#FB7185}
+.hs.off .hsc{border-color:rgba(148,163,184,.35);animation:none}
+.hs.busy{opacity:.45}
+.hs.al-l .hsl{left:2px;transform:none}
+.hs.al-r .hsl{left:auto;right:2px;transform:none}
+.hs.lt .hsl{bottom:auto;top:4px}
+.hs.pressed .hsc{animation:hsPop .28s ease-out}
+@keyframes hsPulse{50%{opacity:.25}}
+@keyframes hsPop{0%{transform:scale(1.6);opacity:1}100%{transform:scale(1);opacity:.65}}
+.scenewrap.tapfx::after{content:'';position:absolute;inset:0;pointer-events:none;background:rgba(220,235,250,.18);animation:tapFx .18s ease-out forwards;border-radius:inherit}
+@keyframes tapFx{to{opacity:0}}
+@media (prefers-reduced-motion:reduce){.hs .hsc,.hs.hot .hsc{animation:none}}
 </style>
 </head>
 <body>
@@ -1566,7 +1592,7 @@ body.tut .coach-target::after{
     </header>
     <div id="coach" hidden></div>
     <section id="locPanel">
-      <div class="scenewrap" id="scenewrap" data-act="sceneToggle" title="장면 크기 바꾸기"><canvas id="scene"></canvas><canvas id="snow" aria-hidden="true"></canvas><div id="tags"></div><div id="stageBadge"></div><div id="tachie"></div><div id="dlg" data-act="dlgNext" hidden></div><button id="mini" data-sheet="map" aria-label="지도 열기"></button><div id="pausebar" hidden></div><span id="sceneSize" aria-hidden="true"></span></div>
+      <div class="scenewrap" id="scenewrap" data-act="sceneToggle" title="장면 크기 바꾸기"><canvas id="scene"></canvas><canvas id="snow" aria-hidden="true"></canvas><div id="tags"></div><div id="hots"></div><div id="stageBadge"></div><div id="tachie"></div><div id="dlg" data-act="dlgNext" hidden></div><button id="mini" data-sheet="map" aria-label="지도 열기"></button><div id="pausebar" hidden></div><span id="sceneSize" aria-hidden="true"></span></div>
       <p id="locDesc"></p>
     </section>
     <div id="prompt" hidden></div>

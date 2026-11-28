@@ -1,6 +1,7 @@
 import { createGame, applyCommand, advance, viewFor, ITEM_USE, CFG, archiveOf, revive, msPerMin } from './engine.js';
 import { ZTYPE_TEXT, SCENE_TEXT, sceneLine, storyLines, secretLine, ENDING_TEXT, endingKey, endingText, PROLOGUE, ROUTE_TEXT, MARK_TEXT, FEAT_TEXT, STATUS_TEXT, STATUS_DESC, AVATARS, TACHIE, BUILD_TEXT, QUESTIONS, OFFER_TEXT, zlabel, NAMES, ZONE_TEXT, ITEM_TEXT, TASK_TEXT, SIGNAL_TEXT, PARTNER_TEXT, RESULT_TEXT, RESULT_CARD, fmt, j, iname, zname } from './text.js';
 import { draw, icon, background, W, H } from './scene.js';
+import { hotspotsFor, hotspotsHtml } from './hotspots.js';
 import { TutorialHost, STEPS } from './tutorial.js';
 import * as SFX from './sfx.js';
 
@@ -340,7 +341,7 @@ const ui = {
     $('#lobby').hidden = true; $('#game').hidden = false;
     $('#tabs').hidden = !host.local;
     document.body.classList.toggle('tut', !!host.tutorial);
-    document.body.classList.add('ingame');
+    document.body.classList.add('ingame'); try { if (localStorage.getItem('saebyeok-hs-seen')) document.body.classList.add('hs-seen'); } catch { /* */ }
     document.body.classList.toggle('scene-big', store.get('saebyeok-scene2') === 'big');
     this.paneKey = null; this.tab = this.tab || 'chat';
     $('#coach').hidden = !host.tutorial;
@@ -368,6 +369,11 @@ const ui = {
     const ox = (cw - W * sc) / 2, oy = (chh - H * sc) / 2;
     const html = tags.map((t) => `<span class="tag${t.small ? ' sm' : ''}" style="left:${Math.round(ox + t.x * sc)}px;top:${Math.round(Math.max(18, oy + t.y * sc))}px">${esc(NAMES[t.role])}${t.typing ? ' …' : ''}</span>`).join('');
     if (html !== this.tagsHtml) { $('#tags').innerHTML = html; this.tagsHtml = html; }
+    // 장면 직접 누르기 — 누를 수 있는 곳을 그림 위에 깐다
+    const spots = hotspotsFor(v);
+    const map = (r) => { if (r.pin) { const pw = 52, y0 = Math.max(0, oy + r.y * sc), y1 = Math.min(chh, oy + (r.y + r.h) * sc); return { x: r.pin === 'l' ? 0 : cw - pw, y: Math.round(y0), w: pw, h: Math.round(y1 - y0) }; } const x0 = Math.max(0, ox + r.x * sc), y0 = Math.max(0, oy + r.y * sc), x1 = Math.min(cw, ox + (r.x + r.w) * sc), y1 = Math.min(chh, oy + (r.y + r.h) * sc); return { x: Math.round(x0), y: Math.round(y0), w: Math.max(0, Math.round(x1 - x0)), h: Math.max(0, Math.round(y1 - y0)) }; };
+    const hh = hotspotsHtml(spots, map, esc, cw);
+    if (hh !== this.hotsHtml) { const el = $('#hots'); if (el) el.innerHTML = hh; this.hotsHtml = hh; }
   },
   set(id, html) { if (this.prev[id] !== html) { const el = document.getElementById(id); if (el) el.innerHTML = html; this.prev[id] = html; } },
   refresh() {
@@ -1277,6 +1283,14 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('button, [data-cmd], [data-move], [data-sheet], [data-pg], [data-act]');
   if (!b) { if (e.target.id === 'sheet') ui.close(); return; }
   const d = b.dataset;
+  if (b.classList.contains('hs')) {
+    const w = $('#scenewrap'); if (w) { w.classList.remove('tapfx'); void w.offsetWidth; w.classList.add('tapfx'); }
+    b.classList.remove('pressed'); void b.offsetWidth; b.classList.add('pressed');
+    if (d.hsoff) { toast(d.hs === 'pipe' ? '이미 확인했다.' : '지금은 갈 수 없다.'); return; }
+    if (b.classList.contains('busy')) { toast('하던 일을 먼저 끝내야 한다.'); return; }
+    try { localStorage.setItem('saebyeok-hs-seen', '1'); } catch { /* */ }
+    document.body.classList.add('hs-seen');
+  }
   if (d.act === 'dlgNext') { const st = ui.dq && ui.dq[ui.role]; if (st) { if (st.queue.length) st.skip = true; else st.at = Date.now() - 60000; } ui.prev.dlg = null; ui.refresh(); return; }
   if (d.tab) { ui.tab = d.tab; ui.paneKey = null; ui.refresh(); return; }
   if (d.act === 'focusSay') { ui.tab = 'chat'; ui.paneKey = null; ui.refresh(); const i = $('#say'); if (i) i.focus(); return; }
