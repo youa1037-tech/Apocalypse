@@ -893,26 +893,666 @@ body.ingame .mz.can.mz-market,body.ingame .mz.can.mz-pump{border-style:dashed;bo
 @keyframes pulse{50%{box-shadow:inset 0 0 0 6px #fff}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:370px){.cards,#play{gap:6px}#compass{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(3,38px)}.tb .tile{width:40px;height:40px}.card{padding:8px}.srow .tile{width:26px;height:26px}.zn{font-size:20px}}
+
+/* ── WINTER FROST-RADIO INTRO & CONTINUOUS-MORPHING TITLE (#lobby) ── */
+#lobby.cine-stage{
+  --c-ink:#070B14;
+  --c-paper:#F6F7FA;
+  --c-cobalt:#1446E6;
+  --c-ice:#A5C8FF;
+  --c-warm:#FDE68A;
+  --c-frost:rgba(165,200,255,.22);
+  --c-spring:cubic-bezier(.16, 1, .28, 1);
+  position:fixed;
+  inset:0;
+  z-index:50;
+  display:block;
+  width:100vw;
+  height:100dvh;
+  max-width:none;
+  margin:0;
+  padding:0;
+  gap:0;
+  overflow:hidden;
+  background:radial-gradient(ellipse at 50% 45%, #0D172B 0%, #060A14 62%, #03050A 100%);
+  color:var(--c-paper);
+  font-family:Galmuri,ui-monospace,monospace;
+  font-size:14px;
+  line-height:1.55;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:none;
+}
+#lobby.cine-stage[hidden]{display:none!important}
+#lobby.cine-stage *{box-sizing:border-box}
+#lobby.cine-stage button,#lobby.cine-stage input{font-family:Galmuri,ui-monospace,monospace}
+
+#lobbyBg{
+  position:absolute;
+  inset:-6%;
+  width:112%;
+  height:112%;
+  image-rendering:pixelated;
+  z-index:0;
+  transform:translate(0,0) scale(1);
+  transition:transform 540ms var(--c-spring), filter 420ms var(--c-spring);
+}
+#lobby.cine-stage[data-depth="intro"] #lobbyBg{transform:scale(1.06);filter:brightness(0.72)}
+#lobby.cine-stage[data-depth="1"] #lobbyBg{transform:translate(4%, -2%) scale(1.12);filter:contrast(1.12) saturate(1.25)}
+#lobby.cine-stage[data-depth="2"] #lobbyBg{transform:translate(-5%, 3%) scale(1.22);filter:contrast(1.2) brightness(0.82)}
+
+#lobby .winter-intro{
+  position:absolute;
+  inset:0;
+  z-index:18;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 440ms var(--c-spring);
+}
+#lobby.cine-stage[data-depth="intro"] .winter-intro{opacity:1;pointer-events:auto}
+
+#lobby .frost-frame{
+  position:relative;
+  width:min(980px, 100%);
+  height:min(540px, calc(100dvh - 96px));
+  border:1px solid var(--c-frost);
+  background:radial-gradient(circle at 50% 50%, rgba(15,28,54,.36) 0%, rgba(5,9,18,.78) 100%);
+  box-shadow:inset 0 0 48px rgba(165,200,255,.08);
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:16px 22px;
+}
+#lobby .frost-frame::before,#lobby .frost-frame::after{
+  content:'';position:absolute;width:14px;height:14px;pointer-events:none;
+}
+#lobby .frost-frame::before{top:-1px;left:-1px;border-top:2px solid var(--c-ice);border-left:2px solid var(--c-ice)}
+#lobby .frost-frame::after{bottom:-1px;right:-1px;border-bottom:2px solid var(--c-ice);border-right:2px solid var(--c-ice)}
+
+#lobby .ff-top,#lobby .ff-bot{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:12px;color:rgba(184,212,255,.72);
+}
+#lobby .tuner{display:flex;align-items:center;gap:8px}
+#lobby .tuner-scale{
+  width:110px;height:8px;position:relative;
+  background:repeating-linear-gradient(90deg, rgba(165,200,255,.45) 0 1px, transparent 1px 6px);
+}
+#lobby .tuner-scale::after{
+  content:'';position:absolute;top:-2px;left:64%;width:2px;height:12px;
+  background:var(--c-warm);box-shadow:0 0 8px var(--c-warm);
+}
+#lobby .lamp-dot{
+  display:inline-block;width:6px;height:6px;background:var(--c-warm);
+  box-shadow:0 0 8px var(--c-warm);margin-right:6px;vertical-align:middle;
+}
+
+#lobby .wi-center{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:12px;
+}
+#lobby .wi-seq{
+  display:flex;flex-direction:column;align-items:center;gap:14px;max-width:700px;
+  transition:opacity 400ms var(--c-spring), transform 400ms var(--c-spring);
+}
+#lobby .wi-seq.out{opacity:0;transform:translateY(-6px)}
+#lobby .wi-meta{font-size:12px;letter-spacing:.14em;color:var(--c-ice);opacity:.8}
+#lobby .wi-main{
+  margin:0;font-size:clamp(22px, 3.8vw, 38px);font-weight:700;letter-spacing:.06em;
+  color:#FFFFFF;text-shadow:0 0 20px rgba(165,200,255,.45);min-height:1.3em;
+}
+#lobby .wi-main.warm{
+  color:var(--c-warm);letter-spacing:.03em;text-shadow:0 0 18px rgba(253,230,138,.4);
+}
+#lobby .wi-sub{
+  display:inline-block;padding:6px 16px;border:1px solid transparent;
+  font-size:15px;color:#E8F0FF;letter-spacing:.03em;min-height:36px;
+  transition:border-color 280ms var(--c-spring), background-color 280ms var(--c-spring);
+}
+#lobby .wi-sub.framed{border-color:rgba(165,200,255,.38);background:rgba(165,200,255,.07)}
+
+#lobby .wi-logs{
+  width:min(540px, 100%);text-align:left;display:flex;flex-direction:column;gap:11px;
+  font-size:15px;color:#EEF4FF;transition:opacity 360ms var(--c-spring);
+}
+#lobby .wi-logs.out{opacity:0}
+#lobby .wi-log-row{display:flex;gap:10px;align-items:baseline}
+#lobby .wi-log-row b{color:var(--c-ice);font-size:13px;flex:none}
+#lobby .cur-ice{
+  display:inline-block;width:8px;height:15px;background:var(--c-ice);
+  box-shadow:0 0 8px var(--c-ice);vertical-align:middle;margin-left:4px;
+  animation:cineBlink .7s steps(2) infinite;
+}
+@keyframes cineBlink{50%{opacity:0}}
+
+/* 연속 모핑 기하학 레이어 */
+#lobby .morph-white{
+  position:absolute;inset:-20%;z-index:2;pointer-events:none;
+  background:repeating-linear-gradient(0deg, rgba(165,200,255,.04) 0 1px, transparent 1px 4px), #182134;
+  clip-path:polygon(52% 0, 100% 0, 100% 100%, 36% 100%);
+  transform:translate(0,0) rotate(0deg);
+  transition:transform 500ms var(--c-spring), clip-path 500ms var(--c-spring), opacity 380ms var(--c-spring);
+}
+#lobby.cine-stage[data-depth="intro"] .morph-white{
+  clip-path:polygon(100% 0, 100% 0, 100% 100%, 100% 100%);opacity:0;
+}
+#lobby.cine-stage[data-depth="1"] .morph-white{
+  clip-path:polygon(0 0, 44% 0, 28% 100%, 0 100%);transform:translate(-2%, 0) rotate(-2deg);
+}
+#lobby.cine-stage[data-depth="2"] .morph-white{
+  clip-path:polygon(0 58%, 100% 30%, 100% 100%, 0 100%);
+}
+
+#lobby .morph-cobalt{
+  position:absolute;inset:-20%;z-index:1;pointer-events:none;
+  background:radial-gradient(rgba(255,255,255,.22) 2px, transparent 2px) 0 0 / 12px 12px, var(--c-cobalt);
+  clip-path:polygon(48% 0, 56% 0, 40% 100%, 30% 100%);
+  transition:transform 520ms var(--c-spring), clip-path 520ms var(--c-spring), opacity 380ms var(--c-spring);
+}
+#lobby.cine-stage[data-depth="intro"] .morph-cobalt{
+  clip-path:polygon(100% 0, 100% 0, 100% 100%, 100% 100%);opacity:0;
+}
+#lobby.cine-stage[data-depth="1"] .morph-cobalt{
+  clip-path:polygon(40% 0, 100% 0, 100% 100%, 24% 100%);opacity:.9;
+}
+#lobby.cine-stage[data-depth="2"] .morph-cobalt{
+  clip-path:polygon(0 0, 100% 0, 100% 42%, 0 68%);opacity:.88;
+}
+
+#lobby .hero-sil{
+  position:absolute;z-index:4;pointer-events:none;right:6%;bottom:-4%;
+  width:min(420px, 42vw);height:min(460px, 76vh);
+  display:flex;align-items:flex-end;justify-content:center;
+  transform:translate(0,0) scale(1);opacity:1;
+  transition:transform 500ms var(--c-spring), opacity 380ms var(--c-spring);
+}
+#lobby .hero-sil svg{width:100%;height:100%;overflow:visible}
+#lobby .sil-fill{fill:#03050A;transition:fill 340ms var(--c-spring)}
+#lobby .sil-rim{fill:var(--c-cobalt);transition:fill 340ms var(--c-spring)}
+#lobby.cine-stage[data-depth="intro"] .hero-sil{transform:translate(36vw, 10%) scale(0.9);opacity:0}
+#lobby.cine-stage[data-depth="1"] .hero-sil{transform:translate(-56vw, 4%) scale(0.92) rotate(-4deg)}
+#lobby.cine-stage[data-depth="1"] .sil-rim{fill:#FFFFFF}
+#lobby.cine-stage[data-depth="2"] .hero-sil{transform:translate(4vw, 6%) scale(1.12) rotate(3deg)}
+#lobby.cine-stage[data-depth="2"] .sil-fill{fill:#FFFFFF}
+#lobby.cine-stage[data-depth="2"] .sil-rim{fill:var(--c-ink)}
+
+#lobby .layer{
+  position:absolute;inset:0;z-index:10;pointer-events:none;opacity:0;
+  transition:opacity 260ms var(--c-spring), transform 460ms var(--c-spring);
+}
+#lobby.cine-stage[data-depth="0"] .layer-0,
+#lobby.cine-stage[data-depth="1"] .layer-1,
+#lobby.cine-stage[data-depth="2"] .layer-2{opacity:1;pointer-events:auto}
+
+#lobby .layer-0{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:40px 6vw 84px;transform:translateX(-44px);
+}
+#lobby.cine-stage[data-depth="0"] .layer-0{transform:translateX(0)}
+#lobby .title-mark{transform:rotate(-3deg);margin-bottom:24px}
+#lobby .title-mark h1{
+  margin:0;display:inline-block;background:var(--c-ink);color:#FFFFFF;
+  border:3px solid #FFFFFF;box-shadow:6px 6px 0 var(--c-cobalt);
+  padding:8px 18px;font-size:clamp(30px, 4.6vw, 52px);line-height:1.05;letter-spacing:-0.03em;
+}
+#lobby .title-mark p{display:block;width:fit-content;margin:10px 0 0 6px;padding:3px 9px;background:var(--c-ink);border:1px solid rgba(165,200,255,.5);font-size:14px;color:var(--c-ice);font-weight:700}
+
+#lobby .cmd-stack{display:flex;flex-direction:column;gap:8px;max-width:340px}
+#lobby .cmd-btn{
+  background:var(--c-ink);color:#FFFFFF;border:2.5px solid #FFFFFF;text-align:left;
+  padding:10px 18px;font-size:20px;font-weight:700;cursor:pointer;
+  transform:skewX(-12deg) rotate(-1.5deg);box-shadow:4px 4px 0 rgba(0,0,0,.6);
+  transition:transform 160ms var(--c-spring), background-color 140ms var(--c-spring), color 140ms var(--c-spring), box-shadow 160ms var(--c-spring);
+}
+#lobby .cmd-btn span{display:inline-block;transform:skewX(12deg)}
+#lobby .cmd-btn small{display:inline-block;margin-left:10px;font-size:12px;color:var(--c-ice);font-weight:400;transform:skewX(12deg)}
+#lobby .cmd-btn:hover,#lobby .cmd-btn.active{
+  background:var(--c-paper);color:var(--c-ink);border-color:var(--c-ink);
+  transform:skewX(-12deg) rotate(0.5deg) translateX(18px) scale(1.04);
+  box-shadow:7px 7px 0 var(--c-cobalt);
+}
+#lobby .cmd-btn:hover small,#lobby .cmd-btn.active small{color:var(--c-cobalt);font-weight:700}
+
+/* DEPTH 1: 온라인 방 / 코드 / 역할 선택 (실제 #online, #codeIn, #rolePick, #localNote 수용) */
+#lobby .layer-1{
+  display:flex;align-items:center;justify-content:flex-end;
+  padding:36px 6vw 74px 36%;transform:translateX(70px) rotate(2deg);
+}
+#lobby.cine-stage[data-depth="1"] .layer-1{transform:translateX(0) rotate(0deg)}
+#lobby .sheet-1{
+  width:min(540px, 100%);background:var(--c-paper);color:var(--c-ink);
+  border:4px solid var(--c-ink);box-shadow:10px 10px 0 var(--c-ink);
+  transform:rotate(-1.8deg);overflow:hidden;
+}
+#lobby .s1-head{background:var(--c-ink);color:#FFFFFF;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+#lobby .s1-head b{font-size:18px}
+#lobby .s1-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px}
+#lobby .s1-desc{margin:0;font-size:13px;color:#3B465E;line-height:1.55}
+#lobby .s1-online{display:flex;flex-direction:column;gap:10px}
+#lobby .s1-code-row{display:flex;gap:8px;align-items:stretch}
+#lobby #codeIn{
+  flex:1;min-width:0;background:#FFFFFF;color:var(--c-ink);
+  border:3px solid var(--c-ink);padding:9px 12px;font-size:16px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.12em;outline:none;
+}
+#lobby #codeIn:focus{border-color:var(--c-cobalt)}
+#lobby .s1-join-btn{
+  background:var(--c-ink);color:#FFFFFF;border:3px solid var(--c-ink);
+  padding:0 18px;font-size:15px;font-weight:700;cursor:pointer;
+  transition:background-color 140ms var(--c-spring), color 140ms var(--c-spring);
+}
+#lobby .s1-join-btn:hover{background:var(--c-cobalt);border-color:var(--c-ink)}
+
+#lobby #rolePick{
+  border-top:2px solid rgba(20,70,230,.32);padding-top:12px;margin-top:4px;
+}
+#lobby #rolePick p{margin:0 0 10px;font-size:14px;color:var(--c-ink)}
+#lobby #rolePick .row{display:flex;gap:8px}
+#lobby #rolePick .btn{
+  flex:1;background:var(--c-ink);color:#FFFFFF;border:3px solid var(--c-ink);
+  box-shadow:4px 4px 0 var(--c-cobalt);padding:10px 12px;font-size:15px;font-weight:700;
+  cursor:pointer;min-height:44px;
+}
+#lobby #rolePick .btn:hover:not(:disabled){background:var(--c-cobalt);color:#FFFFFF}
+#lobby #rolePick .btn.off,#lobby #rolePick .btn:disabled{opacity:.42;cursor:not-allowed;box-shadow:none}
+
+#lobby .s1-next{
+  width:100%;background:var(--c-cobalt);color:#FFFFFF;border:3px solid var(--c-ink);
+  box-shadow:5px 5px 0 var(--c-ink);padding:11px 16px;font-size:16px;font-weight:700;
+  cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+  transform:skewX(-6deg);
+  transition:transform 140ms var(--c-spring), background-color 140ms var(--c-spring);
+}
+#lobby .s1-next span{transform:skewX(6deg)}
+#lobby .s1-next:hover{background:var(--c-ink);transform:skewX(-6deg) translateY(-2px)}
+
+#lobby .s1-local-box{
+  display:flex;flex-direction:column;gap:10px;
+  padding:12px 14px;background:#E9EEF8;border:2px solid var(--c-ink);color:var(--c-ink);
+}
+#lobby .s1-local-box p{margin:0;font-size:13px;line-height:1.6}
+#lobby .s1-local-actions{display:flex;gap:8px}
+#lobby .s1-mini-btn{
+  flex:1;background:var(--c-ink);color:#FFFFFF;border:2px solid var(--c-ink);
+  padding:9px 10px;font-size:14px;font-weight:700;cursor:pointer;
+}
+#lobby .s1-mini-btn:hover{background:var(--c-cobalt)}
+
+/* DEPTH 2: 출발 접수표 (연습하기 / 혼자 시험하기 -> 본게임 진입) */
+#lobby .layer-2{
+  display:flex;align-items:center;justify-content:flex-start;
+  padding:36px 36% 74px 6vw;transform:translate(-50px,-30px) rotate(-5deg);
+}
+#lobby.cine-stage[data-depth="2"] .layer-2{transform:translate(0,0) rotate(0deg)}
+#lobby .slip-2{
+  width:min(470px, 100%);background:var(--c-paper);color:var(--c-ink);
+  border:4px solid var(--c-ink);box-shadow:10px 10px 0 var(--c-ink);
+  transform:rotate(-2.5deg);padding:18px 20px;display:flex;flex-direction:column;gap:12px;
+}
+#lobby .slip-top{
+  display:flex;justify-content:space-between;align-items:baseline;
+  border-bottom:3px solid var(--c-cobalt);padding-bottom:8px;color:var(--c-cobalt);font-weight:700;
+}
+#lobby .slip-line{
+  display:flex;justify-content:space-between;gap:12px;
+  padding:7px 4px;border-bottom:1.5px solid rgba(20,70,230,.3);font-size:14px;
+}
+#lobby .slip-quote{
+  background:var(--c-ink);color:#FFFFFF;padding:10px 14px;font-size:14px;
+  transform:skewX(-5deg);margin-top:4px;
+}
+#lobby .slip-quote span{display:block;transform:skewX(5deg)}
+
+#lobby .hud-foot{
+  position:absolute;left:20px;right:20px;bottom:16px;z-index:25;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+#lobby .crumb{display:flex;gap:6px;flex-wrap:wrap}
+#lobby .c-pill{
+  background:var(--c-ink);color:#FFFFFF;border:2px solid #FFFFFF;
+  padding:4px 11px;font-size:13px;font-weight:700;cursor:pointer;
+  transform:skewX(-10deg);
+  transition:background-color 140ms var(--c-spring), color 140ms var(--c-spring);
+}
+#lobby .c-pill span{display:inline-block;transform:skewX(10deg)}
+#lobby .c-pill:hover,#lobby .c-pill.on{background:#FFFFFF;color:var(--c-ink);border-color:var(--c-ink)}
+
+@media (max-width:780px){
+  #lobby .hero-sil{right:0;bottom:0;width:58vw;height:38vh;opacity:1}
+  #lobby.cine-stage[data-depth="1"] .hero-sil,#lobby.cine-stage[data-depth="2"] .hero-sil{opacity:.3}
+  #lobby .layer-1,#lobby .layer-2{padding:24px 16px 76px;justify-content:center}
+  #lobby .tuner-scale{display:none}
+}
+
+
+/* ── GAME-LIKE FROST-RADIO TUTORIAL HUD (#coach & .coach-target) ── */
+body.tut #coach,
+body.ingame.tut #coach{
+  --t-ink:#070B14;
+  --t-paper:#F6F7FA;
+  --t-cobalt:#1446E6;
+  --t-ice:#A5C8FF;
+  --t-warm:#FDE68A;
+  --t-spring:cubic-bezier(.16, 1, .28, 1);
+  position:relative;
+  margin:8px 0 4px;
+  padding:0;
+  border:2px solid rgba(165,200,255,.55);
+  border-radius:0;
+  background:linear-gradient(160deg, rgba(13,23,43,.96) 0%, rgba(6,10,20,.98) 100%);
+  color:var(--t-paper);
+  box-shadow:0 8px 24px rgba(0,0,0,.55), inset 0 0 28px rgba(165,200,255,.08);
+  font-family:Galmuri,ui-monospace,monospace;
+  overflow:visible;
+  animation:tutPop 240ms var(--t-spring);
+}
+@keyframes tutPop{from{opacity:.7;transform:translateY(-4px)}to{opacity:1;transform:none}}
+body.tut #coach::before,
+body.tut #coach::after{
+  content:'';position:absolute;width:10px;height:10px;pointer-events:none;z-index:2;
+}
+body.tut #coach::before{top:-2px;left:-2px;border-top:2px solid var(--t-ice);border-left:2px solid var(--t-ice)}
+body.tut #coach::after{bottom:-2px;right:-2px;border-bottom:2px solid var(--t-ice);border-right:2px solid var(--t-ice)}
+
+body.tut #coach .tut-top{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  padding:7px 11px;
+  background:rgba(20,70,230,.18);
+  border-bottom:1px solid rgba(165,200,255,.24);
+}
+body.tut #coach .tut-top-l{display:flex;align-items:center;gap:8px;min-width:0}
+body.tut #coach .tut-ch{
+  display:inline-block;
+  background:var(--t-cobalt);color:#FFFFFF;
+  border:1.5px solid #FFFFFF;
+  padding:2px 8px;font-size:11px;font-weight:700;letter-spacing:.03em;
+  transform:skewX(-10deg);
+  box-shadow:3px 3px 0 #070B14;
+}
+body.tut #coach .tut-ch span{display:inline-block;transform:skewX(10deg)}
+body.tut #coach .tut-step{font-size:11px;color:var(--t-ice);font-weight:700;letter-spacing:.06em}
+body.tut #coach .tut-status{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;font-weight:700;padding:2px 8px;
+  border:1px solid rgba(165,200,255,.35);
+  background:rgba(7,11,20,.7);color:var(--t-ice);
+}
+body.tut #coach .tut-status.pause{color:var(--t-warm);border-color:rgba(253,230,138,.45)}
+body.tut #coach .tut-status.action{color:#FFFFFF;background:var(--t-cobalt);border-color:#FFFFFF}
+body.tut #coach .tut-dot{
+  width:6px;height:6px;display:inline-block;background:currentColor;
+  box-shadow:0 0 6px currentColor;
+}
+body.tut #coach .tut-status.action .tut-dot{animation:tutBlink .75s steps(2) infinite}
+@keyframes tutBlink{50%{opacity:.25}}
+
+body.tut #coach .tut-bar{
+  height:4px;background:rgba(165,200,255,.14);position:relative;overflow:hidden;
+}
+body.tut #coach .tut-bar-fill{
+  height:100%;background:linear-gradient(90deg, var(--t-cobalt), var(--t-ice));
+  transition:width 320ms var(--t-spring);
+}
+
+body.tut #coach .tut-main{
+  display:flex;gap:12px;align-items:flex-start;padding:11px 12px 10px;
+}
+body.tut #coach .tut-av{
+  width:46px;height:46px;flex:none;
+  border:2px solid var(--t-ice);background:#0E172E;
+  box-shadow:3px 3px 0 #070B14;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+body.tut #coach .tut-av img{width:100%;height:100%;image-rendering:pixelated;display:block}
+body.tut #coach .tut-av .tut-radio-ico{
+  font-size:11px;font-weight:700;color:var(--t-warm);text-align:center;line-height:1.2;
+}
+body.tut #coach .tut-copy{flex:1;min-width:0}
+body.tut #coach .tut-title-row{
+  display:flex;align-items:center;gap:8px;margin-bottom:4px;
+}
+body.tut #coach .tut-title{
+  font-size:15px;font-weight:700;color:#FFFFFF;letter-spacing:-.01em;
+}
+body.tut #coach .tut-speaker{
+  font-size:11px;color:var(--t-warm);opacity:.9;
+}
+body.tut #coach .tut-text{
+  margin:0;font-size:13px;line-height:1.62;color:#E6EEFF;word-break:keep-all;
+}
+body.tut #coach .tut-key{
+  display:inline-block;margin:0 2px;padding:0 6px;
+  background:var(--t-paper);color:var(--t-ink);
+  border:1.5px solid var(--t-cobalt);
+  box-shadow:2px 2px 0 var(--t-cobalt);
+  font-family:inherit;font-size:12px;font-weight:700;line-height:1.45;
+  transform:skewX(-8deg);vertical-align:baseline;
+}
+body.tut #coach .tut-key span{display:inline-block;transform:skewX(8deg)}
+
+body.tut #coach .tut-tip{
+  margin:7px 0 0;padding:5px 8px;
+  background:rgba(165,200,255,.09);
+  border-left:3px solid var(--t-warm);
+  font-size:12px;color:var(--t-warm);line-height:1.45;
+}
+
+body.tut #coach .tut-foot{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  padding:0 12px 10px;
+}
+body.tut #coach .tut-mission{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:700;color:var(--t-ice);
+}
+body.tut #coach .tut-btn{
+  background:var(--t-paper)!important;color:var(--t-ink)!important;
+  border:2px solid var(--t-ink)!important;
+  box-shadow:4px 4px 0 var(--t-cobalt)!important;
+  border-radius:0!important;padding:6px 16px!important;
+  font-size:13px!important;font-weight:700!important;cursor:pointer;
+  transform:skewX(-10deg);min-height:34px!important;
+  transition:transform 140ms var(--t-spring), background-color 140ms var(--t-spring), color 140ms var(--t-spring);
+}
+body.tut #coach .tut-btn span{display:inline-block;transform:skewX(10deg)}
+body.tut #coach .tut-btn:hover{
+  background:var(--t-cobalt)!important;color:#FFFFFF!important;
+  box-shadow:4px 4px 0 #FFFFFF!important;
+  transform:skewX(-10deg) translateY(-1px);
+}
+body.tut #coach .tut-btn.sec{
+  background:transparent!important;color:var(--t-ice)!important;
+  border:1.5px solid rgba(165,200,255,.55)!important;
+  box-shadow:none!important;
+}
+body.tut #coach .tut-btn.sec:hover{
+  background:rgba(165,200,255,.16)!important;color:#FFFFFF!important;
+}
+body.tut #coach .tut-clear-stamp{
+  position:absolute;top:-11px;right:14px;z-index:5;
+  background:var(--t-warm);color:var(--t-ink);
+  border:2px solid var(--t-ink);box-shadow:3px 3px 0 var(--t-cobalt);
+  padding:1px 9px;font-size:11px;font-weight:700;
+  transform:skewX(-10deg) rotate(-2deg);
+  pointer-events:none;
+  animation:tutStamp 950ms ease forwards;
+}
+@keyframes tutStamp{
+  0%{opacity:0;transform:skewX(-10deg) scale(1.35) rotate(-4deg)}
+  18%{opacity:1;transform:skewX(-10deg) scale(1) rotate(-2deg)}
+  78%{opacity:1;transform:skewX(-10deg) translateY(0) rotate(-2deg)}
+  100%{opacity:0;transform:skewX(-10deg) translateY(-6px) rotate(-2deg)}
+}
+
+/* 업그레이드된 튜토리얼 타깃 스포트라이트 (.coach-target) */
+body.tut .coach-target{
+  position:relative!important;
+  outline:3px solid #A5C8FF!important;
+  outline-offset:2px!important;
+  box-shadow:0 0 0 5px rgba(20,70,230,.55), 0 0 18px rgba(165,200,255,.75)!important;
+  animation:tutTargetGlow .9s ease-in-out infinite!important;
+  z-index:12;
+}
+@keyframes tutTargetGlow{
+  0%,100%{outline-color:#A5C8FF;box-shadow:0 0 0 4px rgba(20,70,230,.55), 0 0 16px rgba(165,200,255,.7)}
+  50%{outline-color:#FDE68A;box-shadow:0 0 0 7px rgba(20,70,230,.85), 0 0 24px rgba(253,230,138,.75)}
+}
+body.tut .coach-target::after{
+  content:'▼ 여기!';
+  position:absolute;top:-24px;left:50%;
+  transform:translateX(-50%) skewX(-10deg);
+  background:#1446E6;color:#FFFFFF;
+  border:1.5px solid #FFFFFF;
+  box-shadow:2px 2px 0 #070B14;
+  padding:1px 7px;font-size:11px;font-weight:700;white-space:nowrap;
+  pointer-events:none;z-index:20;
+  animation:tutBounce .75s ease-in-out infinite;
+}
+@keyframes tutBounce{
+  0%,100%{transform:translateX(-50%) translateY(0) skewX(-10deg)}
+  50%{transform:translateX(-50%) translateY(-4px) skewX(-10deg)}
+}
+
+/* 챕터 전환 프로스트 배너 */
+#tutChapterBanner{
+  position:fixed;top:54px;left:50%;z-index:60;
+  transform:translateX(-50%) translateY(-12px) skewX(-8deg);
+  background:linear-gradient(135deg, rgba(7,11,20,.96), rgba(13,23,43,.96));
+  color:#FFFFFF;
+  border:2px solid #A5C8FF;
+  box-shadow:6px 6px 0 #1446E6, 0 12px 30px rgba(0,0,0,.6);
+  padding:8px 18px;
+  font-family:Galmuri,ui-monospace,monospace;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity 260ms ease, transform 320ms cubic-bezier(.16, 1, .28, 1);
+}
+#tutChapterBanner.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0) skewX(-8deg);
+}
+#tutChapterBanner .tcb-in{transform:skewX(8deg);display:flex;align-items:center;gap:10px;white-space:nowrap}
+#tutChapterBanner .tcb-tag{background:#1446E6;color:#fff;padding:2px 7px;font-size:11px;font-weight:700;border:1px solid #fff}
+#tutChapterBanner .tcb-title{font-size:14px;font-weight:700;color:#FDE68A}
+
 </style>
 </head>
 <body>
 <div id="app">
-  <section id="lobby">
-    <div class="logo">새벽 다섯 시<small>모레 새벽 다섯 시, 첫 차에는 자리가 하나뿐이다. 친구가 이송 명단에 이름을 쓰려 한다. 막을 건가?<br>도쿄 봉쇄 · 2인 협동 · 닷새째 새벽까지</small></div>
-    <div class="panel" id="online">
-      <p>방을 만들고 주소를 친구에게 보내세요.</p>
-      <button class="btn inv" data-act="create" style="width:100%">방 만들기</button>
-      <div class="row"><input id="codeIn" maxlength="5" placeholder="방 코드" autocomplete="off"><button class="btn" data-act="join">참가</button></div>
-      <div id="rolePick" hidden></div>
+  <section id="lobby" class="cine-stage" data-depth="intro">
+    <canvas id="lobbyBg" width="320" height="180" aria-hidden="true"></canvas>
+
+    <!-- 오리지널 겨울 서리 창문 & 라디오 인트로 -->
+    <div class="winter-intro" id="winterIntro">
+      <div class="frost-frame">
+        <div class="ff-top">
+          <div class="tuner">
+            <span>FM 22:15</span>
+            <span class="tuner-scale" aria-hidden="true"></span>
+            <span>TOKYO SHELTER</span>
+          </div>
+          <span id="wiClock">22:00:00</span>
+        </div>
+
+        <div class="wi-center">
+          <div class="wi-seq" id="wiSeq">
+            <div class="wi-meta" id="wiMeta">도쿄 봉쇄 첫날 · 22:00</div>
+            <h1 class="wi-main" id="wiMain"></h1>
+            <div class="wi-sub" id="wiSub"></div>
+          </div>
+          <div class="wi-logs" id="wiLogs" hidden></div>
+        </div>
+
+        <div class="ff-bot">
+          <span><i class="lamp-dot"></i>숙직실 창문에 불이 켜져 있다</span>
+          <span id="wiPhase">TUNING</span>
+        </div>
+      </div>
     </div>
-    <div class="panel">
-      <p>처음이라면 혼자 5분 연습부터.</p>
-      <button class="btn inv" data-act="tutorial" style="width:100%">처음이라면: 연습하기</button>
+
+    <!-- 연속 모핑 타이틀 레이어 -->
+    <div class="morph-cobalt"></div>
+    <div class="morph-white"></div>
+
+    <div class="hero-sil" aria-hidden="true">
+      <svg viewBox="0 0 260 300">
+        <g class="sil-rim" transform="translate(-8, 6)">
+          <path d="M98 76 C98 44, 152 44, 156 76 C158 92, 150 104, 144 112 L176 138 L194 298 L58 298 L68 148 L96 116 C92 104, 96 88, 98 76 Z"/>
+          <path d="M168 106 C168 82, 212 82, 214 108 C215 120, 208 130, 202 136 L228 162 L236 298 L142 298 L152 164 L168 138 Z"/>
+        </g>
+        <g class="sil-fill">
+          <path d="M98 76 C98 44, 152 44, 156 76 C158 92, 150 104, 144 112 L176 138 L194 298 L58 298 L68 148 L96 116 C92 104, 96 88, 98 76 Z"/>
+          <path d="M168 106 C168 82, 212 82, 214 108 C215 120, 208 130, 202 136 L228 162 L236 298 L142 298 L152 164 L168 138 Z"/>
+        </g>
+      </svg>
     </div>
-    <div class="panel">
-      <p>한 기기에서 렌·아케치 화면을 오가며 시험합니다.</p>
-      <button class="btn" data-act="local" style="width:100%">혼자 시험하기</button>
-      <p class="dim" id="localNote" hidden style="margin-top:8px">이 링크는 시험판입니다. 둘이 온라인으로 하려면 배포판을 쓰세요.</p>
+
+    <!-- DEPTH 0: 타이틀 -->
+    <div class="layer layer-0">
+      <div class="title-mark">
+        <h1>새벽 다섯 시</h1>
+        <p>도쿄 봉쇄 · 2인 협동 · 닷새째 새벽까지</p>
+      </div>
+      <nav class="cmd-stack" aria-label="메인 메뉴">
+        <button type="button" class="cmd-btn active" data-cine-go="online-create"><span>방 만들기</span><small>2인 온라인</small></button>
+        <button type="button" class="cmd-btn" data-cine-go="online-join"><span>초대 코드</span><small>방 합류</small></button>
+        <button type="button" class="cmd-btn" data-cine-go="tutorial"><span>연습하기</span><small>혼자 5분</small></button>
+        <button type="button" class="cmd-btn" data-cine-go="local"><span>혼자 시험</span><small>두 화면</small></button>
+      </nav>
+    </div>
+
+    <!-- DEPTH 1: 2인 온라인 방 / 초대 코드 / 역할 선택 -->
+    <div class="layer layer-1">
+      <div class="sheet-1">
+        <div class="s1-head">
+          <b id="s1Title">2인 온라인 · 방 설정</b>
+          <span>ONLINE ROOM</span>
+        </div>
+        <div class="s1-body">
+          <div id="online" class="s1-online">
+            <p class="s1-desc">방을 만들고 주소를 친구에게 보내거나, 받은 5자리 초대 코드를 입력하세요.</p>
+            <button type="button" class="s1-next" data-act="create"><span>새 방 만들기</span><span>CREATE ▸</span></button>
+            <div class="s1-code-row">
+              <input id="codeIn" maxlength="5" placeholder="방 코드 5자리" autocomplete="off">
+              <button type="button" class="s1-join-btn" data-act="join">참가</button>
+            </div>
+            <div id="rolePick" hidden></div>
+          </div>
+
+          <div id="localNote" class="s1-local-box" hidden>
+            <p>이 파일은 오프라인 시험판입니다. 둘이 온라인으로 하려면 배포판(Cloudflare)을 쓰세요. 지금 바로 혼자 연습하거나 두 화면으로 시험해 볼 수 있습니다.</p>
+            <div class="s1-local-actions">
+              <button type="button" class="s1-mini-btn" data-act="tutorial">연습하기 ▸</button>
+              <button type="button" class="s1-mini-btn" data-act="local">혼자 시험하기 ▸</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEPTH 2: 출발 접수표 (연습하기 / 혼자 시험하기 -> 본게임 바로 진입) -->
+    <div class="layer layer-2">
+      <div class="slip-2">
+        <div class="slip-top"><span>시부야구 비상 대피소 접수표</span><span>첫 차 05:00</span></div>
+        <div class="slip-line"><span>선택 모드</span><b id="slipMode">혼자 5분 연습</b></div>
+        <div class="slip-line"><span>시작 시점</span><b>도쿄 봉쇄 첫날 · 22:00</b></div>
+        <div class="slip-line"><span>시작 구역</span><b>대피소 외벽 처마</b></div>
+        <div class="slip-quote"><span id="slipQuote">“모레 새벽 다섯 시, 첫 차에는 자리가 하나뿐이다. 막을 건가?”</span></div>
+        <button type="button" class="s1-next" id="cineStartBtn" data-act="tutorial"><span>대피소 앞에 선다</span><span>PLAY ▸</span></button>
+      </div>
+    </div>
+
+    <div class="hud-foot">
+      <div class="crumb">
+        <button type="button" class="c-pill" id="btnBack" hidden><span>← 뒤로</span></button>
+        <button type="button" class="c-pill" id="btnReplay"><span>인트로 다시 보기</span></button>
+        <button type="button" class="c-pill" id="btnSkip"><span>건너뛰기 ▸</span></button>
+      </div>
+      <button type="button" class="c-pill" id="btnSfx"><span>소리 켜기</span></button>
     </div>
   </section>
 
@@ -957,5 +1597,492 @@ body.ingame .mz.can.mz-market,body.ingame .mz.can.mz-pump{border-style:dashed;bo
   <div id="toast" hidden></div>
 </div>
 <script type="module" src="js/client.js"></script>
+<script>
+(() => {
+  const lobby = document.getElementById('lobby');
+  if (!lobby || !lobby.classList.contains('cine-stage')) return;
+
+  // ── 1비트 겨울 눈 배경 (로비가 숨겨지면 자동 일시정지) ──
+  const cv = document.getElementById('lobbyBg'), g = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const flakes = Array.from({ length: 82 }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    vy: 0.22 + Math.random() * 0.42, vx: -0.16 - Math.random() * 0.18,
+    s: Math.random() < 0.22 ? 2 : 1,
+  }));
+  let rafId = 0;
+  function drawBg() {
+    if (lobby.hidden) { rafId = 0; return; }
+    g.imageSmoothingEnabled = false;
+    g.fillStyle = '#060A15'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#0E172E';
+    for (const [bx, by, bw] of [[0,82,38],[42,68,30],[76,90,44],[124,74,34],[164,86,32],[200,70,40],[246,80,38],[288,66,34]]) {
+      g.fillRect(bx, by, bw, H - by);
+      g.fillStyle = 'rgba(165,200,255,0.2)'; g.fillRect(bx, by, bw, 1);
+      g.fillStyle = '#0E172E';
+    }
+    g.fillStyle = 'rgba(241,245,255,0.88)';
+    for (const f of flakes) {
+      f.y += f.vy; f.x += f.vx;
+      if (f.y > H) { f.y = -2; f.x = Math.random() * W; }
+      if (f.x < 0) f.x = W;
+      g.fillRect(f.x | 0, f.y | 0, f.s, f.s);
+    }
+    rafId = requestAnimationFrame(drawBg);
+  }
+  function ensureBgLoop() { if (!lobby.hidden && !rafId) rafId = requestAnimationFrame(drawBg); }
+  ensureBgLoop();
+
+  // ── Web Audio 겨울 사운드 ──
+  let ctx = null, sfxOn = false;
+  function ac() {
+    if (!sfxOn) return null;
+    if (!ctx) { const A = window.AudioContext || window.webkitAudioContext; if (A) ctx = new A(); }
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  function whoosh(up = true) {
+    const c = ac(); if (!c) return;
+    const o = c.createOscillator(), gn = c.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(up ? 230 : 540, c.currentTime);
+    o.frequency.exponentialRampToValueAtTime(up ? 640 : 185, c.currentTime + 0.11);
+    gn.gain.setValueAtTime(0.07, c.currentTime);
+    gn.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.12);
+    o.connect(gn); gn.connect(c.destination);
+    o.start(); o.stop(c.currentTime + 0.13);
+  }
+  function tick(f = 680, v = 0.025) {
+    const c = ac(); if (!c) return;
+    const o = c.createOscillator(), gn = c.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    gn.gain.setValueAtTime(v, c.currentTime);
+    gn.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.028);
+    o.connect(gn); gn.connect(c.destination);
+    o.start(); o.stop(c.currentTime + 0.032);
+  }
+  function radioStatic() {
+    const c = ac(); if (!c) return;
+    const n = Math.floor(c.sampleRate * 0.1), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n) * 0.08;
+    const s = c.createBufferSource(); s.buffer = b;
+    const fl = c.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = 1550;
+    s.connect(fl); fl.connect(c.destination); s.start();
+  }
+
+  let sec = 0;
+  setInterval(() => {
+    if (lobby.hidden) return;
+    sec++;
+    const mm = String(Math.floor(sec / 60) % 60).padStart(2, '0');
+    const ss = String(sec % 60).padStart(2, '0');
+    const el = document.getElementById('wiClock');
+    if (el) el.textContent = `22:${mm}:${ss}`;
+  }, 1000);
+
+  // ── 상태 머신 ──
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const NOISE = '░▒▓·:─┼05';
+  let depth = 'intro', runId = 0, introPlayedOnce = false;
+
+  const SLIP_META = {
+    tutorial: {
+      mode: '혼자 5분 연습 (렌 시점)',
+      quote: '“처음이라면 대피소 처마 밑에서 5분만 감을 익혀 보자.”',
+      act: 'tutorial',
+    },
+    local: {
+      mode: '한 기기 두 화면 시험 (렌 · 아케치)',
+      quote: '“모레 새벽 다섯 시, 첫 차에는 자리가 하나뿐이다. 막을 건가?”',
+      act: 'local',
+    },
+  };
+
+  function setDepth(next, playSfx = true) {
+    if (playSfx && String(next) !== depth) whoosh(String(next) !== '0');
+    depth = String(next);
+    lobby.dataset.depth = depth;
+    const isIntro = depth === 'intro';
+    document.getElementById('btnSkip').hidden = !isIntro;
+    document.getElementById('btnBack').hidden = isIntro || depth === '0';
+    lobby.querySelectorAll('[data-jump]').forEach((b) => {
+      b.hidden = isIntro;
+      b.classList.toggle('on', b.dataset.jump === depth);
+    });
+  }
+
+  function openSlip(kind) {
+    const m = SLIP_META[kind] || SLIP_META.tutorial;
+    document.getElementById('slipMode').textContent = m.mode;
+    document.getElementById('slipQuote').textContent = m.quote;
+    document.getElementById('cineStartBtn').dataset.act = m.act;
+    setDepth('2', true);
+  }
+
+  async function scramble(el, target, id, speed = 30) {
+    for (let f = 0; f <= target.length + 6; f++) {
+      if (id !== runId || lobby.hidden) return;
+      let out = '';
+      for (let i = 0; i < target.length; i++) {
+        if (target[i] === ' ') { out += ' '; continue; }
+        out += i < f - 3 ? target[i] : NOISE[(Math.random() * NOISE.length) | 0];
+      }
+      el.textContent = out;
+      if (f % 2 === 0) tick(460 + (f % 4) * 50, 0.02);
+      await sleep(speed);
+    }
+    if (id === runId) el.textContent = target;
+  }
+
+  async function typeInto(el, text, id, speed = 42, cursor = true) {
+    for (let i = 1; i <= text.length; i++) {
+      if (id !== runId || lobby.hidden) return;
+      el.innerHTML = text.slice(0, i) + (cursor ? '<span class="cur-ice"></span>' : '');
+      if (i % 2 === 0) tick(640 + (i % 3) * 35, 0.018);
+      await sleep(speed);
+    }
+  }
+
+  async function playIntro() {
+    introPlayedOnce = true;
+    const id = ++runId;
+    setDepth('intro', false);
+    const seq = document.getElementById('wiSeq');
+    const main = document.getElementById('wiMain');
+    const sub = document.getElementById('wiSub');
+    const logs = document.getElementById('wiLogs');
+    const phase = document.getElementById('wiPhase');
+
+    logs.hidden = true; logs.classList.remove('out'); logs.innerHTML = '';
+    seq.hidden = false; seq.classList.remove('out');
+    sub.className = 'wi-sub'; sub.innerHTML = '';
+    main.className = 'wi-main';
+
+    phase.textContent = 'SIGNAL 01';
+    radioStatic();
+    await scramble(main, 'STAY ALIVE UNTIL 05:00', id, 26);
+    if (id !== runId || lobby.hidden) return;
+    await sleep(180);
+    await typeInto(sub, '새벽 다섯 시까지, 둘 다 살아 있을 것', id, 42, true);
+    if (id !== runId || lobby.hidden) return;
+    sub.classList.add('framed');
+    await sleep(1300);
+
+    phase.textContent = 'SIGNAL 02';
+    sub.classList.remove('framed'); sub.innerHTML = '';
+    main.classList.add('warm');
+    radioStatic();
+    await scramble(main, '“하필이면 너구나.”', id, 34);
+    if (id !== runId || lobby.hidden) return;
+    await sleep(200);
+    await typeInto(sub, '첫 차에는 자리가 하나뿐이다. 막을 건가?', id, 40, true);
+    if (id !== runId || lobby.hidden) return;
+    sub.classList.add('framed');
+    await sleep(1400);
+
+    seq.classList.add('out');
+    await sleep(400);
+    if (id !== runId || lobby.hidden) return;
+    seq.hidden = true;
+
+    phase.textContent = 'ARRIVAL';
+    logs.hidden = false;
+    const rows = [
+      ['18:04', '도쿄 23구 전역 이동 제한 문자 수신.'],
+      ['22:00', '대피소 외벽 처마 도착. 숙직실 창에 불이 켜져 있다.'],
+      ['22:15', '수신기 이송 안내 송출 대기… 대피소로 들어섭니다.'],
+    ];
+    for (let i = 0; i < rows.length; i++) {
+      if (id !== runId || lobby.hidden) return;
+      const row = document.createElement('div');
+      row.className = 'wi-log-row';
+      row.innerHTML = `<b>${rows[i][0]}</b><span></span>`;
+      logs.appendChild(row);
+      await typeInto(row.lastElementChild, rows[i][1], id, 32, i === rows.length - 1);
+      if (id !== runId || lobby.hidden) return;
+      await sleep(300);
+    }
+    await sleep(850);
+    if (id !== runId || lobby.hidden) return;
+
+    logs.classList.add('out');
+    await sleep(320);
+    if (id !== runId || lobby.hidden) return;
+    setDepth('0', true);
+  }
+
+  // 메뉴 바인딩
+  lobby.querySelectorAll('.cmd-btn').forEach((b) => {
+    b.addEventListener('mouseenter', () => {
+      lobby.querySelectorAll('.cmd-btn').forEach((x) => x.classList.toggle('active', x === b));
+      tick(820, 0.03);
+    });
+    b.addEventListener('click', () => {
+      const go = b.dataset.cineGo;
+      if (go === 'online-create') {
+        document.getElementById('s1Title').textContent = '2인 온라인 · 방 만들기';
+        setDepth('1', true);
+      } else if (go === 'online-join') {
+        document.getElementById('s1Title').textContent = '2인 온라인 · 초대 코드 합류';
+        setDepth('1', true);
+        const inp = document.getElementById('codeIn');
+        if (inp && !window.__LOCAL_ONLY__) setTimeout(() => inp.focus(), 260);
+      } else if (go === 'tutorial') {
+        openSlip('tutorial');
+      } else if (go === 'local') {
+        openSlip('local');
+      }
+    });
+  });
+
+  document.getElementById('btnBack').addEventListener('click', () => setDepth('0', true));
+  document.getElementById('btnSkip').addEventListener('click', () => { runId++; setDepth('0', true); });
+  document.getElementById('btnReplay').addEventListener('click', () => playIntro());
+  lobby.querySelectorAll('[data-jump]').forEach((b) => b.addEventListener('click', () => {
+    runId++;
+    const j = b.dataset.jump;
+    if (j === '2') openSlip(document.getElementById('cineStartBtn').dataset.act || 'tutorial');
+    else setDepth(j, true);
+  }));
+  document.addEventListener('keydown', (e) => {
+    if (!lobby.hidden && e.key === 'Escape' && depth !== 'intro' && depth !== '0') setDepth('0', true);
+  });
+  document.getElementById('btnSfx').addEventListener('click', (e) => {
+    sfxOn = !sfxOn;
+    e.currentTarget.querySelector('span').textContent = sfxOn ? '소리 켜짐' : '소리 켜기';
+    e.currentTarget.classList.toggle('on', sfxOn);
+    if (sfxOn) radioStatic();
+  });
+
+  // 본게임(client.js)에서 홈으로 돌아올 때(#lobby hidden -> false) 타이틀(0)로 복귀 & 눈 애니메이션 재개
+  new MutationObserver(() => {
+    if (!lobby.hidden) {
+      ensureBgLoop();
+      if (introPlayedOnce) { runId++; setDepth('0', false); }
+    }
+  }).observe(lobby, { attributes: true, attributeFilter: ['hidden'] });
+
+  // 초대 링크(#ABC12)로 접속해 #rolePick이 열리면 즉시 02 온라인 방으로 모핑
+  const rolePick = document.getElementById('rolePick');
+  if (rolePick) {
+    new MutationObserver(() => {
+      if (!rolePick.hidden && !lobby.hidden) {
+        runId++;
+        document.getElementById('s1Title').textContent = '2인 온라인 · 역할 선택';
+        setDepth('1', true);
+      }
+    }).observe(rolePick, { attributes: true, attributeFilter: ['hidden'] });
+  }
+
+  // 초기 진입: 초대 코드 해시가 있으면 바로 02 온라인 방, 아니면 겨울 서리 인트로 재생
+  const hasRoomHash = !window.__LOCAL_ONLY__ && /^#[A-Z0-9]{5}$/.test(location.hash);
+  const INTRO_KEY = 'saebyeok-intro-seen';
+  let seen = false;
+  try { seen = localStorage.getItem(INTRO_KEY) === '1'; localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* 저장소 없음 */ }
+  if (hasRoomHash) {
+    introPlayedOnce = true;
+    setDepth('1', false);
+  } else if (seen) {
+    introPlayedOnce = true;
+    setDepth('0', false);
+  } else {
+    playIntro();
+  }
+})();
+</script>
+
+<script>
+(() => {
+  const coach = document.getElementById('coach');
+  if (!coach) return;
+
+  const AV_REN = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAACkElEQVR4Xu2YXY6CQBCEceO9xJOJJ0NP5qZIPra27fkBXnywEqKLQ091UdPTs6dhGF7DB+Png7kt+BI8iq+CR/FV8Ci+Ch7FbgXHcTw0t56fpqkZZzfBx+OxENREe8kSo4YqQSaGhJNxUj5OqvRCBFskmwpqcg/CqwE+SRybISbdes3nWrZZdrrHJPM8D8/nc7hcLm/EI5x8pnIpuaaCAgFRy7O+3W5dHhQBJeTKC56wwy2kfrB6jeP4mqZp+fRrnueXoM9aDD3DWMXxsfwW7+k+vWqToAYSiIkcFuxtIj0rUg7FIOmYYBRDqnYRhGQ2URbDlYkEI0hQnxBG6R/3BcjKCZ64Xq//aqA8iE/xKh7VAsJnJcQqQG1dvSmm0RcoggpkmL1ewcehQlSipCL+9ecExp9hSslABV9F+k3K6UJdlRYBlfgtvhFXWOA5nqWUMQ7w99kDMlkGjbvf7+sricU7Kzcar5hMlu0cuqfYxe0Sw2alomXuGohXi0HpqmEhyLKPqxFv7SFKzBJIoORrsBCk+JJRLJpZLTuCHnXBSV/cc6UyovtaQNHMvnVFD7Mgor9YUKVYjnUvllkhF+sg+6jGyPi9yBadnle8HnIL4lbj25q+R4+0amLNc7JQy3MRWuLp4qBY1kj2Lh68vZUc9isSdJJOxpNqkWQB7kXaLMRtx7cjCDlJb6e8rh4lV1SwpIqXISb3kuT9obdge17tWgezRrEFTUiTEXvBUi3dS/KNYMtTGUo7UbYzbV3JJ9rq7BjJYagXXuRboBYWmwTDWvu8sz1S70pHgFLnTZuf2WBVUNBW5ie32Jv1YouSGeJ/K9bMvLv2Q9IWg3tJ2qJk5Wz0RzC2+HtJUoJax9GeA9svQNQ0T/QRjREAAAAASUVORK5CYII=";
+  const AV_AKECHI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAADgUlEQVR4Xq2YCa7iMBBECfr3IpyMcLLAyTIqi5ep9G8vYaakKMRruXczXS6XbVmWi/B6vcp7nufydqhPj/q83+ewjt564ljAHPZkPd632+3yfD5L/09GJgPkIjTfyQuQc/L+2/dkfm3da8omkV4mtRrY1Mm3kElaUhSu8TTfIEqBDZG6q7QFNOFIJRhtJNsgtjnJaKsIISPgYNz7/S7N+h5S8YidZmMy1fVIOqTmnzMqRWp4a82w3QaRBIBgdLpo49hgk2BUtYhFCWQ27LbXsvEsMkR7/qXimtsLOlVP3W5vPc9txUqQ2mBGEnt6PB4HCWUONOIUo7Y45CTRjlB1K8h6sI6HiKbTwrUlATdsgVNjwLE/c5pM5T0zcQx5MQuSHzPiUcocqJaBXDB+iBgLUwnWNouhIkO0rZZ6a/N9n2KDmZqdpMeu2liXWCweaiR7Hq95h1zcAovhzXpv2/bLnjy2QczfPj/aYvZdCPZc3skB2hR21nVN05ojBmUPV5lzocFig63gnEHj2YCF9K1nxEM1Tg6nd3YIooTeO8GMpNuSL6b2+/2eOpOHIFQb053IRc91LXo1M83zvCEFTz0xmMreokPVpDVN0x7M3SO1vqdLEfWA7glAQCibSPLojqLfy7Lsvz/3lm0E67qW8cLn8Pva6nPQz/rsqXHqEySFnZCT1GDfQIvEDTJoHuM0h4c2vfVABnKQYp+dIB2Q4eQuxWyjHiABEeBE0JYT1r58HyQICQE1uQRZWBueAVpx6aMdpM0haIdg4RElFdXDBt/CSUT7yyQHH1S8B2p5pAKupyxPd99CnkjYABQdauf6EIsKPLhUM+rMquUYSL8B8Y3DuwDUR2jR/iJMG4T3aiaLabTF+u8snBzS05ouAO1FTDwIxg3SQTj4n8DRYqiBA3bnmIorV5Clqt5YAZtD8qRRUhzqjJnLJQ2usUp2aGH1t8bU4OSEGjnUmZETpk+wbFYiFAaj1UqE5ruN47kN5f2VIF6lRfRk0uJ0tf4WIBeL1xFyYDg7xMzSA0E3ZqaRnA5E8pATe4gVSA2etnwOlc4oioq5J8SIn0Hq9r96VftllyK1eRbJMsYQOOlZxJKJKsSLCq/r2CeLdS1MWoQU8y9eGsMTsc5T6Jm4CkouFjH+WRfZMzk4/kMAMQ7taXLkQhVxqGa4qRH3RuAXIOCk1d+67PfwByuIyPvbvEQbAAAAAElFTkSuQmCC";
+
+  // 챕터 정의 (31단계 -> 6개 친절한 챕터)
+  const CHAPTERS = [
+    { from: 1,  to: 4,  code: 'CH.01', name: '처마 밑 첫 만남',   sub: '시계 정지와 화면 읽는 법' },
+    { from: 5,  to: 10, code: 'CH.02', name: '탐색과 숙직실 진입', sub: '물건 찾고 검문 통과하기' },
+    { from: 11, to: 17, code: 'CH.03', name: '창 너머와 무전기',  sub: '손짓 · 창틀 · 무전 대화' },
+    { from: 18, to: 23, code: 'CH.04', name: '옥상과 좀비 대응',  sub: '문 열기 · 대처 · 잠그기' },
+    { from: 24, to: 28, code: 'CH.05', name: '둘이 함께 움직이기', sub: '거들기 · 붙잡기 · 선택' },
+    { from: 29, to: 31, code: 'CH.06', name: '닷새째 새벽까지',   sub: '아침 점검과 이송 차량 규칙' },
+  ];
+
+  // 단계별 친절한 보조 가이드 팁 (초보자 막힘 방지)
+  const STEP_TIPS = {
+    1:  '다 읽으면 오른쪽 아래 [다음으로]를 눌러 시작해요.',
+    2:  '아래 파랗게 빛나는 [주변]을 열고 아케치 카드를 눌러 보세요. 잡지 않고 보내도 괜찮아요!',
+    5:  '아래 [주변] → 맨 위 구역 카드의 [주변 탐색]을 누르면 진행 막대가 차올라요.',
+    6:  '아래 [가방]을 열고 ‘이곳 바닥’ 칸의 배터리를 누르면 가방에 들어가요.',
+    8:  '아래 [지도]를 누른 뒤, 검문대 칸을 누르면 걸어가기 시작해요.',
+    9:  '[주변]에서 검사원 카드를 찾아 [검사 받기]를 눌러 통과해요.',
+    10: '[지도]에서 숙직실을 누르면 건물 안으로 들어가요.',
+    12: '화면 맨 아래 입력창 왼쪽의 [창 너머 · 손짓] 버튼을 눌러 보세요.',
+    13: '[가방]에서 배터리를 누른 뒤 [창틀에 두기]를 고르면 유리창 너머로 건네져요.',
+    14: '잠깐 기다리면 아케치가 배터리를 챙겨 무전기를 고쳐요.',
+    16: '맨 아래 입력창에 짧은 인사라도 적어 전송해 보세요!',
+    17: '예: *고개를 끄덕인다* 처럼 문장 양끝에 별표(*)를 붙여 보내 보세요.',
+    18: '[주변]에서 옥상 문 카드를 찾아 [열기]를 눌러 걸쇠를 풀어요.',
+    19: '[지도]에서 옥상을 눌러 위로 올라가 보세요.',
+    21: '[주변]의 좀비 카드에서 [밀어내기]나 [맞서기]를 눌러 보세요. 연습에선 물리지 않아요.',
+    22: '[지도]에서 숙직실을 눌러 안전하게 내려와요.',
+    23: '[주변]의 옥상 문 카드에서 [잠그기]를 누르면 밤에 안전해요.',
+    24: '아케치가 검문을 통과해 숙직실로 들어오는 중이에요. 잠시 지켜봐 주세요.',
+    26: '[주변]의 아케치 카드에서 [거들기]를 누르면 둘이 함께 탐색해요.',
+    27: '[주변]의 아케치 카드에서 [붙잡기]를 눌러 걸음을 멈춰 세워 보세요.',
+  };
+
+  // 화자/아이콘 매핑
+  const AKECHI_STEPS = new Set([2, 11, 14, 24, 25, 26, 27]);
+  const REN_STEPS = new Set([5, 6, 7, 8, 9, 10, 12, 13, 16, 17, 18, 19, 21, 22, 23]);
+  const WAIT_STEPS = new Set([14, 24]);
+
+  function getChapter(step) {
+    return CHAPTERS.find((c) => step >= c.from && step <= c.to) || CHAPTERS[0];
+  }
+
+  // 부드러운 2음 겨울 완료 차임
+  let tCtx = null;
+  function playChime() {
+    try {
+      const A = window.AudioContext || window.webkitAudioContext;
+      if (!A) return;
+      if (!tCtx) tCtx = new A();
+      if (tCtx.state === 'suspended') tCtx.resume();
+      const now = tCtx.currentTime;
+      [[587.33, 0], [880, 0.075]].forEach(([freq, dt]) => {
+        const o = tCtx.createOscillator(), g = tCtx.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(freq, now + dt);
+        g.gain.setValueAtTime(0.045, now + dt);
+        g.gain.exponentialRampToValueAtTime(0.0008, now + dt + 0.16);
+        o.connect(g); g.connect(tCtx.destination);
+        o.start(now + dt); o.stop(now + dt + 0.17);
+      });
+    } catch (_) {}
+  }
+
+  // 챕터 배너 DOM 생성
+  const banner = document.createElement('div');
+  banner.id = 'tutChapterBanner';
+  banner.innerHTML = '<div class="tcb-in"><span class="tcb-tag"></span><span class="tcb-title"></span></div>';
+  document.body.appendChild(banner);
+  let bannerTimer = 0;
+  function showChapterBanner(ch) {
+    banner.querySelector('.tcb-tag').textContent = ch.code;
+    banner.querySelector('.tcb-title').textContent = `${ch.name} · ${ch.sub}`;
+    banner.classList.add('show');
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => banner.classList.remove('show'), 2300);
+  }
+
+  function formatKeys(rawText) {
+    const esc = rawText
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return esc.replace(/\[([^\]]+)\]/g, '<kbd class="tut-key"><span>$1</span></kbd>');
+  }
+
+  let enhancing = false, lastStep = 0, lastChapterCode = '';
+
+  function enhanceCoach() {
+    if (enhancing || coach.hidden) return;
+    const stepEl = coach.querySelector('.cstep');
+    if (!stepEl) return; // 이미 개편된 상태거나 비어 있음
+
+    const m = (stepEl.textContent || '').trim().match(/^(\d+)\s*\/\s*(\d+)$/);
+    if (!m) return;
+    const step = Number(m[1]), total = Number(m[2]);
+    const titleEl = coach.querySelector('.ch2 b');
+    const title = titleEl ? titleEl.textContent.trim() : '';
+    const textEl = coach.querySelector('p:not(.cdo)');
+    const text = textEl ? textEl.textContent.trim() : '';
+
+    const hasNext = !!coach.querySelector('[data-act="coachNext"]');
+    const isLast = !!coach.querySelector('[data-act="home"]');
+    const isWait = WAIT_STEPS.has(step);
+    const ch = getChapter(step);
+    const pct = Math.max(3, Math.round((step / total) * 100));
+
+    const cleared = lastStep > 0 && step > lastStep;
+    const newChapter = ch.code !== lastChapterCode;
+    lastStep = step;
+    lastChapterCode = ch.code;
+
+    // 화자 아바타 결정
+    let avHtml = '<div class="tut-radio-ico">FM<br>22:15</div>';
+    let speaker = '대피소 현장 브리핑';
+    if (AKECHI_STEPS.has(step)) {
+      avHtml = `<img src="${AV_AKECHI}" alt="아케치">`;
+      speaker = '아케치 고로 · 파트너';
+    } else if (REN_STEPS.has(step)) {
+      avHtml = `<img src="${AV_REN}" alt="렌">`;
+      speaker = '아마미야 렌 · 내 행동';
+    }
+
+    // 상태 배지 결정
+    let statusClass = 'pause', statusLabel = '시계 정지 · 설명';
+    if (isLast) { statusClass = 'action'; statusLabel = '연습 완료!'; }
+    else if (!hasNext && isWait) { statusClass = ''; statusLabel = '진행 중 · 지켜보기'; }
+    else if (!hasNext) { statusClass = 'action'; statusLabel = '직접 해보기'; }
+
+    // 하단 버튼/미션 영역
+    let footHtml = '';
+    if (isLast) {
+      footHtml = `
+        <span class="tut-mission">✓ 모든 기본 조작을 익혔어요!</span>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="tut-btn sec" data-act="restart"><span>다시 연습</span></button>
+          <button type="button" class="tut-btn" data-act="home"><span>타이틀로 ▸</span></button>
+        </div>`;
+    } else if (hasNext) {
+      footHtml = `
+        <span class="tut-mission">▪ 설명을 읽는 동안 시간이 멈춰 있어요</span>
+        <button type="button" class="tut-btn" data-act="coachNext"><span>다음으로 ▸</span></button>`;
+    } else if (isWait) {
+      footHtml = `<span class="tut-mission">● 잠시 기다리면 자동으로 다음 단계로 넘어가요…</span>`;
+    } else {
+      footHtml = `<span class="tut-mission">▶ 파랗게 깜빡이는 버튼을 눌러 직접 해 보세요!</span>`;
+    }
+
+    const tip = STEP_TIPS[step] ? `<div class="tut-tip"><b style="margin-right:6px;color:#A5C8FF">TIP</b>${formatKeys(STEP_TIPS[step])}</div>` : '';
+    const stamp = cleared ? '<div class="tut-clear-stamp">✓ CLEAR</div>' : '';
+
+    enhancing = true;
+    coach.innerHTML = `
+      ${stamp}
+      <div class="tut-top">
+        <div class="tut-top-l">
+          <span class="tut-ch"><span>${ch.code} · ${ch.name}</span></span>
+          <span class="tut-step">STEP ${String(step).padStart(2, '0')} / ${total}</span>
+        </div>
+        <span class="tut-status ${statusClass}"><i class="tut-dot"></i>${statusLabel}</span>
+      </div>
+      <div class="tut-bar"><div class="tut-bar-fill" style="width:${pct}%"></div></div>
+      <div class="tut-main">
+        <div class="tut-av">${avHtml}</div>
+        <div class="tut-copy">
+          <div class="tut-title-row">
+            <span class="tut-title">${title}</span>
+            <span class="tut-speaker">${speaker}</span>
+          </div>
+          <p class="tut-text">${formatKeys(text)}</p>
+          ${tip}
+        </div>
+      </div>
+      <div class="tut-foot">${footHtml}</div>
+    `;
+    enhancing = false;
+
+    if (cleared) playChime();
+    if (newChapter && !coach.hidden) showChapterBanner(ch);
+  }
+
+  new MutationObserver(() => {
+    if (coach.hidden) { lastStep = 0; lastChapterCode = ''; return; }
+    enhanceCoach();
+  }).observe(coach, { childList: true, attributes: true, attributeFilter: ['hidden'] });
+})();
+</script>
 </body>
 </html>
